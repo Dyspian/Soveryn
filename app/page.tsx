@@ -11,6 +11,10 @@ export default async function HomePage() {
   return (
     <section className="panel mx-auto max-w-3xl py-10">
       <Emblem className="h-14 w-14 text-gold" />
+      <p className="mt-6 border border-line bg-obsidian px-4 py-3 text-sm">
+        <span className="text-xs tracking-[0.16em] text-warning uppercase">Beta</span>
+        <span className="mt-1 block text-ink">The game is in beta. Player progression will be wiped after beta.</span>
+      </p>
       <p className="kicker mt-6">Persistent world</p>
       <p className="page-title mt-2">Build your power. Shape your world.</p>
       <p className="mt-4 max-w-2xl text-muted">
