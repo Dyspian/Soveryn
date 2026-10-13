@@ -29,7 +29,9 @@ export function AppShell({
   user: SessionUser | null;
   children: React.ReactNode;
 }) {
-  const map = usePathname() === "/map";
+  const pathname = usePathname();
+  if (pathname === "/") return children;
+  const map = pathname === "/map";
   return (
     <div className={map ? "flex h-dvh flex-col overflow-hidden" : "flex min-h-dvh flex-col"}>
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-panel focus:px-3 focus:py-2">
