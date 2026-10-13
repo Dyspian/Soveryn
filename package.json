@@ -1,0 +1,41 @@
+{
+  "name": "soveryn",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SOVERYN persistent sandbox — Phase 1 geographic foundation",
+  "scripts": {
+    "predev": "node scripts/copy-map-worker.mjs",
+    "prebuild": "node scripts/copy-map-worker.mjs",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:up": "docker compose up -d",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:import": "tsx scripts/import-geography.ts",
+    "db:resources": "tsx scripts/import-resources.ts",
+    "db:setup": "tsx scripts/migrate.ts && tsx scripts/import-geography.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "fflate": "^0.8.3",
+    "maplibre-gl": "^6.13.0",
+    "next": "^16.4.0",
+    "postgres": "^3.4.9",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3",
+    "zod": "^4.6.5"
+  }
+}

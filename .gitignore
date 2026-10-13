@@ -1,0 +1,14 @@
+node_modules
+.next
+public/maplibre-gl-worker.mjs
+out
+dist
+coverage
+.env
+.env.local
+data/cache
+data/pglite
+data/dev-session-secret
+*.log
+tsconfig.tsbuildinfo
+next-env.d.ts

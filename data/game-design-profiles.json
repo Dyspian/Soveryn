@@ -1,0 +1,57 @@
+[
+  {
+    "iso2": "NL",
+    "asciiName": "Rotterdam",
+    "logistics": 5,
+    "industry": 4,
+    "commerce": 3,
+    "government": 1,
+    "energy": 2,
+    "strategic": 3,
+    "designNote": "Game-design concept: port logistics, maritime trade, and industry. This is not a sourced ranking."
+  },
+  {
+    "iso2": "NL",
+    "asciiName": "Amsterdam",
+    "logistics": 3,
+    "industry": 1,
+    "commerce": 5,
+    "government": 2,
+    "energy": 1,
+    "strategic": 3,
+    "designNote": "Game-design concept: finance, commerce, and international business. This is not a sourced ranking."
+  },
+  {
+    "iso2": "NL",
+    "asciiName": "The Hague",
+    "logistics": 1,
+    "industry": 0,
+    "commerce": 2,
+    "government": 5,
+    "energy": 0,
+    "strategic": 4,
+    "designNote": "Game-design concept: diplomacy, government, and political institutions. This is not a sourced ranking."
+  },
+  {
+    "iso2": "US",
+    "asciiName": "Houston",
+    "logistics": 3,
+    "industry": 4,
+    "commerce": 2,
+    "government": 1,
+    "energy": 5,
+    "strategic": 3,
+    "designNote": "Game-design concept: energy and industrial activity. This is not a sourced ranking."
+  },
+  {
+    "iso2": "AE",
+    "asciiName": "Dubai",
+    "logistics": 5,
+    "industry": 2,
+    "commerce": 5,
+    "government": 2,
+    "energy": 2,
+    "strategic": 4,
+    "designNote": "Game-design concept: international trade, logistics, and finance. This is not a sourced ranking."
+  }
+]
