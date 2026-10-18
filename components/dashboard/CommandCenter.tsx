@@ -74,7 +74,12 @@ export function CommandCenter({
           <p className="kicker">Setup</p>
           <h2 className="section-title mt-1">Where to start</h2>
           <p className="mt-2 max-w-3xl text-sm text-muted">
-            Character, the world map, inventory, the market, missions, businesses, politics, and organizations are already playable.
+            Your character is saved. The map, your character sheet, and missions are the next places to look.
+          </p>
+          <p className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+            <Link href="/map" className="text-gold">Open the map</Link>
+            <Link href="/character" className="text-gold">Review your character</Link>
+            <Link href="/missions" className="text-gold">See missions</Link>
           </p>
           <form action={dismissGuideAction} className="mt-3">
             <button className="btn btn-secondary">Dismiss guide</button>

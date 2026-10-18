@@ -51,7 +51,7 @@ function wrapPglite(db: PGlite): Database {
 }
 
 function wrapPostgres(url: string): Database {
-  const client = postgres(url, { max: 1, idle_timeout: 20 });
+  const client = postgres(url, { max: 3, idle_timeout: 20 });
   const toSql = (tx: { unsafe: (text: string, params?: readonly unknown[]) => Promise<unknown> }): Sql => ({
     async query<T>(text: string, params: readonly unknown[] = []) {
       const rows = await tx.unsafe(text, params);

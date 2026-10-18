@@ -1,11 +1,6 @@
 import Link from "next/link";
+import { siteSections } from "@/components/site/sections";
 import type { SiteVisitor } from "@/components/site/visitor";
-
-const sections = [
-  { href: "#world", label: "The world" },
-  { href: "#beta", label: "The beta" },
-  { href: "#community", label: "Community" },
-];
 
 export function PublicSiteFooter({ visitor }: { visitor: SiteVisitor }) {
   return (
@@ -14,7 +9,7 @@ export function PublicSiteFooter({ visitor }: { visitor: SiteVisitor }) {
         <div className="flex flex-col justify-between gap-6 md:flex-row md:items-start">
           <p className="font-serif text-xl tracking-[0.22em] text-ink">SOVERYN</p>
           <nav className="flex flex-wrap gap-x-4 gap-y-2 text-sm" aria-label="Footer">
-            {sections.map((item) => (
+            {siteSections.map((item) => (
               <a key={item.href} href={item.href} className="nav-link">
                 {item.label}
               </a>

@@ -4,13 +4,8 @@ import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import { Emblem } from "@/components/brand/Emblem";
 import { PrimaryAction } from "@/components/site/PrimaryAction";
+import { siteSections } from "@/components/site/sections";
 import { siteEntry, type SiteVisitor } from "@/components/site/visitor";
-
-const sections = [
-  { href: "#world", label: "The world" },
-  { href: "#beta", label: "The beta" },
-  { href: "#community", label: "Community" },
-];
 
 export function PublicSiteHeader({ visitor }: { visitor: SiteVisitor }) {
   const entry = siteEntry(visitor);
@@ -37,7 +32,7 @@ export function PublicSiteHeader({ visitor }: { visitor: SiteVisitor }) {
           <span className="truncate font-serif text-lg tracking-[0.16em] text-ink sm:text-xl sm:tracking-[0.22em]">SOVERYN</span>
         </Link>
         <nav className="ml-6 hidden items-center gap-1 md:flex" aria-label="Website">
-          {sections.map((item) => (
+          {siteSections.map((item) => (
             <a key={item.href} href={item.href} className="nav-link">
               {item.label}
             </a>
@@ -71,7 +66,7 @@ export function PublicSiteHeader({ visitor }: { visitor: SiteVisitor }) {
         <nav id={menuId} className="border-t border-line bg-obsidian px-4 py-4 md:hidden" aria-label="Website">
           <PrimaryAction href={entry.href} className="w-full">{entry.label}</PrimaryAction>
           <ul className="mt-4 space-y-1">
-            {sections.map((item) => (
+            {siteSections.map((item) => (
               <li key={item.href}>
                 <a href={item.href} className="nav-link block py-2" onClick={() => setOpen(false)}>
                   {item.label}

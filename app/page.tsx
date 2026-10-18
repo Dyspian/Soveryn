@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { HeroSection } from "@/components/site/HeroSection";
 import { PublicSiteFooter } from "@/components/site/PublicSiteFooter";
 import { PublicSiteHeader } from "@/components/site/PublicSiteHeader";
-import { BetaSection, CommunitySection, WorldSection } from "@/components/site/SiteSections";
+import { GameplayShowcase } from "@/components/site/GameplayShowcase";
+import { BetaSection, ClosingSection, CommunitySection, FaqSection } from "@/components/site/SiteSections";
 import { siteVisitor } from "@/components/site/visitor";
+import { WorldIntelligenceFallback, WorldIntelligenceSection } from "@/components/site/WorldIntelligenceSection";
+import { RecordFallback, RecordSection } from "@/components/site/RecordSection";
+import { WorldPreview } from "@/components/site/WorldPreview";
 import { getCurrentUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
@@ -20,9 +25,18 @@ export default async function HomePage() {
       <PublicSiteHeader visitor={visitor} />
       <main id="main">
         <HeroSection visitor={visitor} />
-        <WorldSection />
+        <Suspense fallback={<WorldIntelligenceFallback />}>
+          <WorldIntelligenceSection />
+        </Suspense>
+        <Suspense fallback={<RecordFallback />}>
+          <RecordSection />
+        </Suspense>
+        <WorldPreview visitor={visitor} />
+        <GameplayShowcase />
         <BetaSection visitor={visitor} />
         <CommunitySection />
+        <FaqSection />
+        <ClosingSection visitor={visitor} />
       </main>
       <PublicSiteFooter visitor={visitor} />
     </div>

@@ -26,9 +26,9 @@ export default async function CreatePage() {
       <p className="kicker">Character</p>
       <h1 className="page-title mb-2">Create your character</h1>
       <p className="mb-6 max-w-3xl text-muted">
-        Identity, starting location, and specialization are saved together. Populations and coordinates come from the
-        imported sources. A blank population was not reported; a source value of 0 is kept as unverified rather than
-        shown as a real count.
+        Your account is signed in. Identity, starting location, and specialization are saved together. Populations and
+        coordinates come from the imported sources. A blank population was not reported; a source value of 0 is kept as
+        unverified rather than shown as a real count.
       </p>
       <CreateCharacterForm countries={countries} />
     </section>
