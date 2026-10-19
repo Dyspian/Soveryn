@@ -36,6 +36,7 @@ import {
   dissolveOrganization,
   inviteMember,
   leaveOrganization,
+  markAllNoticesRead,
   markNoticeRead,
   removeMember,
   renameRank,
@@ -273,10 +274,15 @@ export async function organizationsAction(_previous: ActionResult | null, formDa
         await markNoticeRead(sql, { userId: user.id, noticeId: String(formData.get("noticeId") ?? "") });
         return "The notice was marked read.";
       }
+      if (intent === "read-all-notices") {
+        await markAllNoticesRead(sql, { userId: user.id });
+        return "Unread notices were marked read.";
+      }
       throw new OrgError("That organization action is not recognized.");
     });
     revalidatePath("/organizations");
     revalidatePath(`/organizations/${String(formData.get("organizationId") ?? "")}`);
+    if (intent === "read-notice" || intent === "read-all-notices") revalidatePath("/", "layout");
     return { ok: true, message: intent === "create" ? "The organization was founded." : message };
   } catch (error) {
     return failure(error);

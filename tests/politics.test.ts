@@ -23,6 +23,7 @@ import {
   scheduleElection,
   signCoalition,
   signTreaty,
+  claimMonarchy,
   succeedMonarch,
   declareEmergency,
   depositPartyFunds,
@@ -343,7 +344,11 @@ describe("politics", () => {
     await expect(tx((sql) => formGovernment(sql, { userId: east.userId, countryId: france }))).rejects.toThrow(/tie does not/);
     await tx((sql) => signCoalition(sql, { userId: east.userId, countryId: france, otherPartyId: central }));
     await tx((sql) => formGovernment(sql, { userId: east.userId, countryId: france }));
-    await tx((sql) => succeedMonarch(sql, { userId: east.userId, countryId: france, characterId: eastMember.characterId }));
+    const resident = await person("plain@example.com", "plain_resident", france, paris);
+    await expect(tx((sql) => claimMonarchy(sql, { userId: president.userId, countryId: france }))).rejects.toThrow(/political home/);
+    await tx((sql) => claimMonarchy(sql, { userId: resident.userId, countryId: france }));
+    await expect(tx((sql) => claimMonarchy(sql, { userId: west.userId, countryId: france }))).rejects.toThrow(/already held/);
+    await expect(tx((sql) => succeedMonarch(sql, { userId: east.userId, countryId: france, characterId: eastMember.characterId }))).rejects.toThrow(/vacant succession office/);
     const monarch = await db.query<{ username: string }>(
       `select ch.username from officeholders h
        join characters ch on ch.id = h.character_id
@@ -352,7 +357,7 @@ describe("politics", () => {
        where k.country_id = $1 and o.office_key = 'monarch' and h.status = 'active'`,
       [france],
     );
-    expect(monarch.rows[0]?.username).toBe("east_member");
+    expect(monarch.rows[0]?.username).toBe("plain_resident");
     const succession = await db.query<{ detail: string }>("select detail from political_events where country_id = $1 and kind = 'succession'", [france]);
     expect(succession.rows[0]?.detail).toContain("not a real monarch");
 

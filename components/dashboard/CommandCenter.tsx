@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Portrait } from "@/components/brand/Portrait";
+import { EntityMark } from "@/components/game/EntityMark";
 import { SavedMap } from "@/components/map/SavedMap";
 import { XpBar } from "@/components/progression/XpBar";
 import { dismissGuideAction } from "@/lib/actions/account";
@@ -96,8 +97,9 @@ export function CommandCenter({
             <p className="text-sm text-muted">
               @{username} · {sheet.specializationTitle}
             </p>
-            <p className="text-sm">
-              {city.name}, {city.countryName}
+            <p className="mt-1 flex items-center gap-2 text-sm">
+              <EntityMark kind="country" code={city.countryIso2} label={city.countryName} size="sm" />
+              <span>{city.name}, {city.countryName}</span>
             </p>
             {journeyNote ? <p className="text-sm text-gold">{journeyNote}</p> : null}
           </div>
@@ -109,17 +111,17 @@ export function CommandCenter({
       </header>
 
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="panel">
+        <div className="stat-tile">
           <dt className="kicker">Currency</dt>
-          <dd className="num mt-1 text-xl">{amount(sheet.currency)}</dd>
+          <dd className="mt-1">{amount(sheet.currency)}</dd>
         </div>
-        <div className="panel">
+        <div className="stat-tile">
           <dt className="kicker">Reputation</dt>
-          <dd className="num mt-1 text-xl">{amount(sheet.reputation)}</dd>
+          <dd className="mt-1">{amount(sheet.reputation)}</dd>
         </div>
-        <div className="panel">
+        <div className="stat-tile">
           <dt className="kicker">Condition</dt>
-          <dd className="num mt-1 text-xl">
+          <dd className="mt-1">
             {sheet.condition}
             <span className="text-sm text-muted"> / 100</span>
           </dd>
@@ -127,9 +129,9 @@ export function CommandCenter({
             <div className="h-full bg-info" style={{ width: `${Math.min(100, Math.max(0, sheet.condition))}%` }} />
           </div>
         </div>
-        <div className="panel">
+        <div className="stat-tile">
           <dt className="kicker">Skill points</dt>
-          <dd className="num mt-1 text-xl">{amount(sheet.skillPoints)}</dd>
+          <dd className="mt-1">{amount(sheet.skillPoints)}</dd>
         </div>
       </dl>
 
@@ -172,12 +174,15 @@ export function CommandCenter({
                   const done = mission.objectives.filter((objective) => objective.completed).length;
                   const next = mission.objectives.find((objective) => !objective.completed);
                   return (
-                    <li key={mission.id}>
+                    <li key={mission.id} className="flex items-start gap-3">
+                      <EntityMark kind="mission" category={mission.category} label={mission.category} size="sm" />
+                      <div>
                       <p className="font-medium">{mission.name}</p>
                       <p className="text-sm text-muted">
                         {done} of {mission.objectives.length} objectives done
                         {next ? ` · Next: ${next.description}` : ""}
                       </p>
+                      </div>
                     </li>
                   );
                 })}
@@ -337,10 +342,11 @@ export function CommandCenter({
               </Link>
             </div>
             {sheet.inventory.length === 0 ? <p className="mt-2 text-sm text-muted">No items stored.</p> : null}
-            <ul className="mt-2 space-y-1 text-sm">
+            <ul className="mt-3 space-y-2 text-sm">
               {held.map((item) => (
-                <li key={item.id} className="flex justify-between gap-3">
-                  <span className="min-w-0 truncate">{item.name}</span>
+                <li key={item.id} className="flex items-center gap-2">
+                  <EntityMark kind="item" id={item.id} category={item.category} label={item.name} size="sm" />
+                  <span className="min-w-0 flex-1 truncate">{item.name}</span>
                   <span className="num shrink-0 text-muted">× {amount(item.quantity)}</span>
                 </li>
               ))}

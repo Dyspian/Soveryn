@@ -1,16 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Portrait } from "@/components/brand/Portrait";
+import { EntityMark } from "@/components/game/EntityMark";
+import { NoticeBoard } from "@/components/organizations/NoticeBoard";
 import { OrganizationCreate } from "@/components/organizations/OrganizationCreate";
-import { organizationsAction } from "@/lib/actions/organizations";
-
-async function markNotice(formData: FormData) {
-  "use server";
-  await organizationsAction(null, formData);
-}
 import { getCurrentUser } from "@/lib/auth/session";
 import { getSql } from "@/lib/db";
 import { ORG_TYPES } from "@/lib/organizations/domain";
-import { listOrganizations, viewerNotices } from "@/lib/organizations/queries";
+import { listOrganizations, loadNoticeFeed } from "@/lib/organizations/queries";
 
 export default async function OrganizationsPage() {
   const user = await getCurrentUser();
@@ -19,7 +16,7 @@ export default async function OrganizationsPage() {
   const sql = await getSql();
   const [organizations, notices, places, invites] = await Promise.all([
     listOrganizations(sql, user.characterId),
-    viewerNotices(sql, user.characterId),
+    loadNoticeFeed(sql, user.characterId),
     sql.query<{ id: string; name: string }>(
       `select p.id, p.name from places p
        join starting_locations s on s.place_id = p.id
@@ -42,32 +39,26 @@ export default async function OrganizationsPage() {
         <h1 className="page-title">Organizations</h1>
         <p className="mt-2 text-sm text-muted">Player organizations are game groups. They are not real institutions. A rivalry is a relationship record, not control of a country. Warfare is not in this version.</p>
       </div>
-      {notices.filter((notice) => !notice.read).length > 0 ? (
-        <ul className="space-y-1 text-sm">
-          {notices
-            .filter((notice) => !notice.read)
-            .map((notice) => (
-              <li key={notice.id}>
-                {notice.detail}
-                <form action={markNotice} className="inline">
-                  <input type="hidden" name="intent" value="read-notice" />
-                  <input type="hidden" name="noticeId" value={notice.id} />
-                  <button className="btn btn-secondary ml-2">Mark read</button>
-                </form>
-              </li>
-            ))}
-        </ul>
-      ) : null}
+      <NoticeBoard feed={notices} />
       <ul className="space-y-2">
         {organizations.map((org) => (
           <li key={org.id} className="panel text-sm">
-            <Link href={`/organizations/${org.id}`} className="text-gold">
-              {org.name} [{org.tag}]
-            </Link>
-            {org.mine ? <span className="ml-2 text-muted">Your organization</span> : null}
-            <p className="mt-1 text-muted">
-              {ORG_TYPES[org.orgType as keyof typeof ORG_TYPES]?.label ?? org.orgType} · {org.city} · {org.members} members · {org.recruitment}
-            </p>
+            <div className="flex items-start gap-3">
+              {org.emblemKey ? (
+                <Portrait portraitKey={org.emblemKey} className="h-9 w-9 shrink-0" />
+              ) : (
+                <EntityMark kind="organization" code={org.tag} label={org.name} />
+              )}
+              <div className="min-w-0">
+                <Link href={`/organizations/${org.id}`} className="text-gold">
+                  {org.name} [{org.tag}]
+                </Link>
+                {org.mine ? <span className="ml-2 text-muted">Your organization</span> : null}
+                <p className="mt-1 text-muted">
+                  {ORG_TYPES[org.orgType as keyof typeof ORG_TYPES]?.label ?? org.orgType} · {org.city} · {org.members} members · {org.recruitment}
+                </p>
+              </div>
+            </div>
           </li>
         ))}
       </ul>

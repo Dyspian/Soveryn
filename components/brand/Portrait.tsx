@@ -9,12 +9,12 @@ const PATHS = [
 
 export function Portrait({ portraitKey, className = "h-16 w-16" }: { portraitKey: string; className?: string }) {
   const index = Number(portraitKey.replace("mark-", "")) - 1;
-  const path = PATHS[index] ?? PATHS[0];
+  const known = /^mark-[1-6]$/.test(portraitKey) && PATHS[index];
   return (
-    <svg viewBox="0 0 64 64" className={className} role="img" aria-label="Character portrait">
+    <svg viewBox="0 0 64 64" className={className} role="img" aria-label={known ? "Built-in portrait" : "No built-in portrait is stored"}>
       <rect width="64" height="64" rx="8" fill="#1e2126" />
       <circle cx="32" cy="32" r="20" fill="none" stroke="#c4a15a" strokeWidth="2" />
-      <path d={path} fill="none" stroke="#e6e2d8" strokeWidth="2" strokeLinecap="round" />
+      {known ? <path d={PATHS[index]} fill="none" stroke="#e6e2d8" strokeWidth="2" strokeLinecap="round" /> : null}
     </svg>
   );
 }

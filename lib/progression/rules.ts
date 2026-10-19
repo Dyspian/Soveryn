@@ -156,6 +156,11 @@ export function skillLevelForXp(xp: number, xpPerLevel: number, maxLevel: number
   return Math.min(maxLevel, Math.floor(xp / xpPerLevel));
 }
 
+export function skillProgress(xp: number, level: number, xpPerLevel: number, maxLevel: number): { into: number; span: number } {
+  if (level >= maxLevel || xpPerLevel <= 0) return { into: Math.max(0, xp), span: 0 };
+  return { into: Math.max(0, xp - level * xpPerLevel), span: xpPerLevel };
+}
+
 export function applySkillEffects(base: Reward, skills: SkillEffect[], context: string): Reward {
   let xp = base.xp;
   let currency = base.currency;

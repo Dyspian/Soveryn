@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getSql } from "@/lib/db";
 import { cityTradeFacts, listProducts, marketListings, viewerMarket } from "@/lib/economy/queries";
 import { listCountries, startingCities } from "@/lib/geo/queries";
+import { nodeBonus } from "@/lib/progression/service";
 
 export default async function MarketPage({ searchParams }: { searchParams: Promise<{ iso2?: string; place?: string }> }) {
   const user = await getCurrentUser();
@@ -38,9 +39,19 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
   const currency = Number(wallet[0]?.currency ?? 0);
   const feePercent = Number(feeRows[0]?.amount ?? 0);
   const salesTax = Number(taxRows[0]?.percent ?? 0);
+  const discountRows = await sql.query<{ level: number; effect_per_level: number }>(
+    `select cs.level, sd.effect_per_level
+     from character_skills cs
+     join skill_definitions sd on sd.id = cs.skill_id
+     join characters c on c.id = cs.character_id
+     where c.user_id = $1 and sd.effect_key = 'currency_percent'`,
+    [user.id],
+  );
+  const focus = user.characterId ? await nodeBonus(sql, user.characterId, "market_fee_flat", { kind: "general" }) : 0;
+  const feeDiscountPercent = (discountRows[0] ? Number(discountRows[0].level) * Number(discountRows[0].effect_per_level) : 0) + focus;
 
   return (
-    <section className="max-w-3xl space-y-4">
+    <section className="max-w-5xl space-y-4">
       <div>
         <p className="kicker">Trade</p>
         <h1 className="page-title">City market</h1>
@@ -77,6 +88,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
           placeId={place.id}
           currency={currency}
           feePercent={feePercent}
+          feeDiscountPercent={feeDiscountPercent}
           salesTax={salesTax}
           sales={facts.sales}
           supply={facts.supply}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Portrait } from "@/components/brand/Portrait";
+import { EntityMark } from "@/components/game/EntityMark";
 import { ConnectionPanel } from "@/components/social/ConnectionPanel";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getSql } from "@/lib/db";
@@ -36,9 +37,12 @@ export default async function PublicCharacterPage({ params }: { params: Promise<
         </div>
       </div>
       <p className="mt-6">{character.biography || "This character has not published a biography."}</p>
-      <p className="mt-4 text-sm">
-        Recorded city: {character.city.name}, {character.city.countryName} (
-        {formatCoordinate(character.city.latitude, "lat")}, {formatCoordinate(character.city.longitude, "lon")}).
+      <p className="mt-4 flex items-center gap-2 text-sm">
+        <EntityMark kind="country" code={character.city.countryIso2} label={character.city.countryName} size="sm" />
+        <span>
+          Recorded city: {character.city.name}, {character.city.countryName} (
+          {formatCoordinate(character.city.latitude, "lat")}, {formatCoordinate(character.city.longitude, "lon")}).
+        </span>
       </p>
       <section className="mt-6 border-t border-line pt-4 text-sm">
         <h2 className="section-title">Standing</h2>

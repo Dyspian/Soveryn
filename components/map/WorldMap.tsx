@@ -2,7 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ExpressionSpecification } from "maplibre-gl";
+import { territoryFrame } from "@/lib/geo/bounds";
 import type { BoundaryCollection, MapPointCollection } from "@/lib/geo/queries";
+import {
+  CONFLICT_LAYER_NOTE,
+  CONSTITUTION_LAYER_NOTE,
+  constitutionColor,
+  constitutionLegend,
+  countryTintChange,
+  type ConstitutionMark,
+} from "@/lib/map/presentation";
 
 type MapLibreModule = typeof import("maplibre-gl");
 
@@ -36,6 +45,7 @@ export function WorldMap({
   playerLongitude = null,
   destinationLatitude = null,
   destinationLongitude = null,
+  selectedLabel = null,
 }: {
   selectedIso2: string | null;
   selectedCity: MapFocus | null;
@@ -48,12 +58,14 @@ export function WorldMap({
   playerLongitude?: number | null;
   destinationLatitude?: number | null;
   destinationLongitude?: number | null;
+  selectedLabel?: string | null;
 }) {
   const container = useRef<HTMLDivElement | null>(null);
   const frame = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<import("maplibre-gl").Map | null>(null);
   const moduleRef = useRef<MapLibreModule | null>(null);
   const markersRef = useRef<Marker[]>([]);
+  const boundariesRef = useRef<BoundaryCollection | null>(null);
   const playerMarker = useRef<import("maplibre-gl").Marker | null>(null);
   const destinationMarker = useRef<import("maplibre-gl").Marker | null>(null);
   const callbacks = useRef({ onSelectCountry, onSelectCity, onInspectPlace, selectedIso2, selectedCity });
@@ -69,8 +81,10 @@ export function WorldMap({
   const [resourceIso2, setResourceIso2] = useState<string[]>([]);
   const [resourceNote, setResourceNote] = useState("");
   const [showPolitics, setShowPolitics] = useState(false);
-  const [politicsIso2, setPoliticsIso2] = useState<string[]>([]);
+  const [politicsRows, setPoliticsRows] = useState<ConstitutionMark[]>([]);
   const [politicsNote, setPoliticsNote] = useState("");
+  const [hoverName, setHoverName] = useState("");
+  const hoverNameRef = useRef("");
   const [showBusinesses, setShowBusinesses] = useState(false);
   const [businessNote, setBusinessNote] = useState("");
   const [showOrganizations, setShowOrganizations] = useState(false);
@@ -109,7 +123,7 @@ export function WorldMap({
           if (cancelled) return;
           void (async () => {
             try {
-              await loadBoundaries(map);
+              boundariesRef.current = await loadBoundaries(map);
             } catch {
               if (!cancelled) setNotice("Country borders could not be loaded.");
             }
@@ -137,20 +151,31 @@ export function WorldMap({
             map.on("click", (event) => handleMapClick(map, event.point));
             let hoveredIso: string | null = null;
             map.on("mousemove", "countries-fill", (event) => {
-              const next = event.features?.[0]?.id;
+              const feature = event.features?.[0];
+              const next = feature?.id;
               const iso = next == null ? null : String(next);
-              if (iso === hoveredIso) return;
-              if (hoveredIso && hoveredIso !== iso) map.setFeatureState({ source: "countries", id: hoveredIso }, { hover: false });
-              if (iso) {
+              const name = typeof feature?.properties?.name === "string" ? feature.properties.name : "";
+              if (iso !== hoveredIso) {
+                if (hoveredIso) map.setFeatureState({ source: "countries", id: hoveredIso }, { hover: false });
                 hoveredIso = iso;
-                map.setFeatureState({ source: "countries", id: iso }, { hover: true });
-                map.getCanvas().style.cursor = "pointer";
+                if (iso) {
+                  map.setFeatureState({ source: "countries", id: iso }, { hover: true });
+                  map.getCanvas().style.cursor = "pointer";
+                }
+              }
+              if (!cancelled && hoverNameRef.current !== name) {
+                hoverNameRef.current = name;
+                setHoverName(name);
               }
             });
             map.on("mouseleave", "countries-fill", () => {
               if (hoveredIso) map.setFeatureState({ source: "countries", id: hoveredIso }, { hover: false });
               hoveredIso = null;
               if (map.getCanvas()) map.getCanvas().style.cursor = "";
+              if (!cancelled && hoverNameRef.current) {
+                hoverNameRef.current = "";
+                setHoverName("");
+              }
             });
             for (const layer of ["cities-point", "clusters"]) {
               map.on("mouseenter", layer, () => {
@@ -245,46 +270,35 @@ export function WorldMap({
   const focusLongitude = selectedCity?.longitude;
 
   useEffect(() => {
-    const map = mapRef.current;
-    const maplibre = moduleRef.current;
-    if (status !== "ready" || !map || !maplibre) return;
-    if (focusId != null && focusLatitude != null && focusLongitude != null) {
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      map.flyTo({
-        center: [focusLongitude, focusLatitude],
-        zoom: Math.max(map.getZoom(), 7),
-        duration: reduce ? 0 : 800,
-      });
-      return;
-    }
-    if (!selectedIso2) return;
-    const points = markersRef.current.filter((marker) => marker.iso2 === selectedIso2);
-    if (points.length === 0) return;
-    const bounds = new maplibre.LngLatBounds();
-    for (const point of points) bounds.extend([point.longitude, point.latitude]);
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    map.fitBounds(bounds, { padding: 48, maxZoom: 6, duration: reduce ? 0 : 700 });
+    frameSelection(selectedIso2, focusLatitude == null || focusLongitude == null ? null : { latitude: focusLatitude, longitude: focusLongitude });
   }, [selectedIso2, focusId, focusLatitude, focusLongitude, status]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (status !== "ready" || !map?.getLayer("countries-fill")) return;
     const selected = selectedIso2 ?? "";
+    const politicsIso2 = politicsRows.flatMap((row) => (row.templateId ? [row.iso2] : []));
     const resourceMatch = (showResources && resourceIso2.length > 0 ? ["in", ["get", "iso2"], ["literal", resourceIso2]] : ["==", ["get", "iso2"], ""]) as ExpressionSpecification;
     const politicsMatch = (showPolitics && politicsIso2.length > 0 ? ["in", ["get", "iso2"], ["literal", politicsIso2]] : ["==", ["get", "iso2"], ""]) as ExpressionSpecification;
+    const politicsPaint = politicsRows.flatMap((row) => (row.templateId ? [row.iso2, constitutionColor(row.templateId)] : []));
+    const constitutionFill = (showPolitics && politicsPaint.length > 0
+      ? ["match", ["get", "iso2"], ...politicsPaint, "#c5a45b"]
+      : "#c5a45b") as unknown as ExpressionSpecification;
     map.setPaintProperty("countries-fill", "fill-opacity", [
       "case",
       ["==", ["get", "iso2"], selected],
-      0.42,
+      0.5,
+      ["all", ["boolean", ["feature-state", "hover"], false], politicsMatch],
+      0.55,
+      politicsMatch,
+      0.4,
       resourceMatch,
       0.38,
-      politicsMatch,
-      0.38,
       ["boolean", ["feature-state", "hover"], false],
-      0.18,
+      0.2,
       0.06,
     ]);
-    map.setPaintProperty("countries-line", "line-color", ["case", ["==", ["get", "iso2"], selected], "#d8bb78", "#8e9aab"]);
+    map.setPaintProperty("countries-line", "line-color", ["case", ["==", ["get", "iso2"], selected], "#d8bb78", ["boolean", ["feature-state", "hover"], false], "#d8bb78", "#8e9aab"]);
     map.setPaintProperty("countries-line", "line-width", ["case", ["==", ["get", "iso2"], selected], 2.4, ["boolean", ["feature-state", "hover"], false], 1.6, 1]);
     const visibility = showBorders || showResources || showPolitics ? "visible" : "none";
     map.setLayoutProperty("countries-fill", "visibility", visibility);
@@ -296,10 +310,10 @@ export function WorldMap({
       resourceMatch,
       "#6f9a78",
       politicsMatch,
-      "#6e8ca8",
+      constitutionFill,
       "#c5a45b",
     ]);
-  }, [selectedIso2, showBorders, showResources, showPolitics, resourceIso2, politicsIso2, status]);
+  }, [selectedIso2, showBorders, showResources, showPolitics, resourceIso2, politicsRows, status]);
 
   useEffect(() => {
     if (!showResources) return;
@@ -336,9 +350,9 @@ export function WorldMap({
       try {
         const response = await fetch("/api/geo/politics");
         if (!response.ok) throw new Error("politics");
-        const body = (await response.json()) as { highlights: string[]; note: string };
+        const body = (await response.json()) as { countries: ConstitutionMark[]; note: string };
         if (cancelled) return;
-        setPoliticsIso2(body.highlights);
+        setPoliticsRows(body.countries.filter((row) => row.templateId && row.templateName));
         setPoliticsNote(body.note);
       } catch {
         if (!cancelled) setPoliticsNote("Game political status could not be loaded.");
@@ -439,7 +453,8 @@ export function WorldMap({
       const clusterId = Number(cluster.properties?.cluster_id);
       const [longitude, latitude] = cluster.geometry.coordinates;
       void source.getClusterExpansionZoom(clusterId).then((zoom) => {
-        map.easeTo({ center: [longitude, latitude], zoom, duration: 500 });
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        map.easeTo({ center: [longitude, latitude], zoom, duration: reduce ? 0 : 500 });
       });
       return;
     }
@@ -466,11 +481,62 @@ export function WorldMap({
         callbacks.current.onInspectPlace({ id: String(other.properties.id), longitude, latitude });
         return;
       }
+      const businesses = map.queryRenderedFeatures(point, { layers: ["business-points"] });
+      const business = businesses[0];
+      if (business?.geometry.type === "Point" && business.properties?.id) {
+        const [longitude, latitude] = business.geometry.coordinates;
+        callbacks.current.onInspectPlace({ id: String(business.properties.id), longitude, latitude });
+        return;
+      }
+    }
+
+    const organizations = map.queryRenderedFeatures(point, { layers: ["organization-points"] });
+    const organizationIso = organizations[0]?.properties?.iso2;
+    if (typeof organizationIso === "string" && organizationIso) {
+      callbacks.current.onSelectCountry(organizationIso);
+      return;
     }
 
     const countries = map.queryRenderedFeatures(point, { layers: ["countries-fill"] });
     const iso2 = countries[0]?.properties?.iso2;
     if (typeof iso2 === "string") callbacks.current.onSelectCountry(iso2);
+  }
+
+  function frameSelection(iso: string | null, focus: { latitude: number; longitude: number } | null) {
+    const map = mapRef.current;
+    const maplibre = moduleRef.current;
+    if (status !== "ready" || !map || !maplibre) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (focus) {
+      map.flyTo({
+        center: [focus.longitude, focus.latitude],
+        zoom: Math.max(map.getZoom(), 7),
+        duration: reduce ? 0 : 800,
+      });
+      return;
+    }
+    if (!iso) return;
+    const feature = boundariesRef.current?.features.find((item) => item.properties.iso2 === iso);
+    const frame = feature ? territoryFrame(feature.geometry) : null;
+    if (frame?.mode === "bounds") {
+      map.fitBounds(
+        [
+          [frame.west, frame.south],
+          [frame.east, frame.north],
+        ],
+        { padding: 48, maxZoom: 6, duration: reduce ? 0 : 700 },
+      );
+      return;
+    }
+    if (frame?.mode === "center") {
+      map.easeTo({ center: [frame.longitude, frame.latitude], zoom: frame.zoom, duration: reduce ? 0 : 700 });
+      return;
+    }
+    const points = markersRef.current.filter((marker) => marker.iso2 === iso);
+    if (points.length === 0) return;
+    const bounds = new maplibre.LngLatBounds();
+    for (const point of points) bounds.extend([point.longitude, point.latitude]);
+    map.fitBounds(bounds, { padding: 48, maxZoom: 6, duration: reduce ? 0 : 700 });
   }
 
   function fitWorld() {
@@ -488,6 +554,8 @@ export function WorldMap({
   }
 
   const legendNote = [notice, showResources ? resourceNote : "", showPolitics ? politicsNote : "", showBusinesses ? businessNote : "", showOrganizations ? organizationNote : ""].filter(Boolean).join(" ");
+  const constitutionEntries = showPolitics ? constitutionLegend(politicsRows) : [];
+  const selectionReady = Boolean(selectedIso2 || selectedCity);
 
   return (
     <div ref={frame} className={`map-frame relative ${fill ? "h-full" : ""}`}>
@@ -498,16 +566,21 @@ export function WorldMap({
             {message}
           </p>
         ) : null}
+        {hoverName ? (
+          <p className="pointer-events-none absolute top-14 right-3 z-10 hidden max-w-48 truncate border border-line bg-panel/95 px-3 py-1 text-xs text-ink sm:block">
+            {hoverName}
+          </p>
+        ) : null}
         {layersOpen ? null : (
           <button type="button" className="btn btn-secondary absolute bottom-16 left-3 z-10 md:bottom-3" onClick={() => setLayersOpen(true)}>
             Layers
           </button>
         )}
         {layersOpen ? (
-        <div className="absolute bottom-16 left-3 z-10 max-h-[46%] w-64 max-w-[calc(100%-5rem)] overflow-auto border border-line bg-panel/95 p-3 text-xs md:bottom-10">
-          <div className="flex items-center justify-between">
+        <div className="map-overlay absolute bottom-16 left-3 z-10 max-h-[46%] w-72 max-w-[calc(100%-5rem)] overflow-auto p-3 text-xs md:bottom-10">
+          <div className="flex items-center justify-between gap-2">
             <p className="kicker">Layers</p>
-            <button type="button" className="text-muted hover:text-ink" onClick={() => setLayersOpen(false)}>Hide</button>
+            <button type="button" className="btn btn-secondary" onClick={() => setLayersOpen(false)}>Hide</button>
           </div>
           <div className="mt-2 space-y-1">
             <LayerToggle checked={showBorders} onChange={setShowBorders} label="Country borders" />
@@ -516,7 +589,9 @@ export function WorldMap({
             <LayerToggle
               checked={showResources}
               onChange={(value) => {
-                setShowResources(value);
+                const next = countryTintChange({ resources: showResources, politics: showPolitics }, { key: "resources", enabled: value });
+                setShowResources(next.resources);
+                setShowPolitics(next.politics);
                 if (value) setShowBorders(true);
               }}
               label="Resource statistics"
@@ -541,32 +616,58 @@ export function WorldMap({
             <LayerToggle
               checked={showPolitics}
               onChange={(value) => {
-                setShowPolitics(value);
+                const next = countryTintChange({ resources: showResources, politics: showPolitics }, { key: "politics", enabled: value });
+                setShowResources(next.resources);
+                setShowPolitics(next.politics);
                 if (value) setShowBorders(true);
               }}
-              label="Game politics"
+              label="Game constitutions"
             />
             <LayerToggle checked={showBusinesses} onChange={setShowBusinesses} label="Business properties" />
             <LayerToggle checked={showOrganizations} onChange={setShowOrganizations} label="Organizations" />
+            <LayerToggle checked={false} disabled label="Territorial conflict" describedBy="map-conflict-note" />
           </div>
-          <ul className="mt-3 space-y-1 text-muted">
-            <li className="flex items-center gap-2"><span className="inline-block h-2 w-2 bg-gold-bright" /> Selected country</li>
-            {showResources ? <li className="flex items-center gap-2"><span className="inline-block h-2 w-2 bg-success" /> Reported proved reserve</li> : null}
-            {showPolitics ? <li className="flex items-center gap-2"><span className="inline-block h-2 w-2 bg-info" /> Game political status</li> : null}
-            {showBusinesses ? <li>Business marks are headquarters, not borders.</li> : null}
-            {showOrganizations ? <li>Organization marks are headquarters, not borders.</li> : null}
-            <li>Country borders are not contest results. A city contest, an open work bulletin, and an enacted game law are described in the inspector.</li>
+          <ul className="mt-3 space-y-1 text-muted" aria-label="Map legend">
+            <li className="flex items-center gap-2"><span className="map-swatch bg-gold-bright" /> Selected country{selectedLabel ? `: ${selectedLabel}` : ""}</li>
+            {showResources ? <li className="flex items-center gap-2"><span className="map-swatch bg-success" /> Reported proved reserve above zero</li> : null}
+            {constitutionEntries.map((entry) => (
+              <li key={entry.templateId} className="flex items-center gap-2">
+                <span className="map-swatch" style={{ background: entry.color }} />
+                {entry.templateName}
+              </li>
+            ))}
+            {showPolitics ? <li className="flex items-center gap-2"><span className="map-swatch bg-gold" /> No game constitution</li> : null}
+            {showBusinesses ? <li>Business marks are city headquarters, not borders.</li> : null}
+            {showOrganizations ? <li>Organization marks are public headquarters, not borders.</li> : null}
+            <li id="map-conflict-note">{CONFLICT_LAYER_NOTE}</li>
+            {showPolitics ? <li>{CONSTITUTION_LAYER_NOTE}</li> : null}
           </ul>
           {legendNote ? <p className="mt-2 text-muted" role="status">{legendNote}</p> : null}
           <p className="mt-2 text-faint">Borders: Natural Earth. Places: GeoNames. Tiles: OpenFreeMap.</p>
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <button type="button" className="btn btn-secondary" onClick={fitWorld}>Fit world</button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={!selectionReady}
+              onClick={() => frameSelection(selectedIso2, selectedCity ? { latitude: selectedCity.latitude, longitude: selectedCity.longitude } : null)}
+            >
+              Fit selection
+            </button>
             <button type="button" className="btn btn-secondary" onClick={toggleFullscreen}>Fullscreen</button>
           </div>
         </div>
         ) : (
-          <div className="absolute right-3 bottom-3 z-10 flex gap-2">
+          <div className="absolute right-3 bottom-16 z-10 flex flex-wrap justify-end gap-2 md:bottom-3">
             <button type="button" className="btn btn-secondary" onClick={fitWorld}>Fit world</button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={!selectionReady}
+              onClick={() => frameSelection(selectedIso2, selectedCity ? { latitude: selectedCity.latitude, longitude: selectedCity.longitude } : null)}
+            >
+              Fit selection
+            </button>
           </div>
         )}
       </div>
@@ -579,15 +680,17 @@ function LayerToggle({
   onChange,
   label,
   disabled = false,
+  describedBy,
 }: {
   checked: boolean;
   onChange?: (value: boolean) => void;
   label: string;
   disabled?: boolean;
+  describedBy?: string;
 }) {
   return (
-    <label className={`flex items-center gap-2 ${disabled ? "text-muted" : ""}`}>
-      <input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange?.(event.target.checked)} />
+    <label className={`flex min-h-9 items-center gap-2 ${disabled ? "text-muted" : ""}`}>
+      <input type="checkbox" checked={checked} disabled={disabled} aria-describedby={describedBy} onChange={(event) => onChange?.(event.target.checked)} />
       {label}
     </label>
   );
@@ -617,6 +720,7 @@ async function loadBoundaries(map: import("maplibre-gl").Map) {
     source: "other-places",
     paint: { "circle-color": "#8ea0b5", "circle-radius": 3, "circle-opacity": 0.8 },
   });
+  return data;
 }
 
 function addCitySource(map: import("maplibre-gl").Map) {

@@ -1,7 +1,14 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { EntityMark } from "@/components/game/EntityMark";
+import Link from "next/link";
+import { DiplomacyPanel } from "@/components/politics/DiplomacyPanel";
+import { ElectionBoard } from "@/components/politics/ElectionBoard";
+import { ParliamentView } from "@/components/politics/ParliamentView";
+import { selectionLabel } from "@/lib/politics/government-view";
 import { politicsAction } from "@/lib/actions/politics";
+import { ActionFeedback } from "@/components/feedback/ActionFeedback";
 import type { ActionResult } from "@/lib/actions/account";
 import { formatUtc } from "@/lib/world/clock";
 
@@ -17,31 +24,39 @@ type Desk = {
   countryId: string;
   countryName: string;
   templates: { id: string; name: string; summary: string }[];
-  constitution: { templateName: string; summary: string; restricted: boolean; version: number; note: string } | null;
-  offices: { officeKey: string; name: string; holder: string | null }[];
-  parties: { id: string; name: string; abbreviation: string; platform: string; members: number; balance: number }[];
-  elections: { id: string; kind: string; status: string; officeKey: string | null; registering: boolean; voting: boolean }[];
-  bills: { id: string; title: string; status: string; effectKey: string; effectValue: number; voting: boolean; votingEnds: string | Date; yes: number; no: number }[];
+  constitution: { templateId: string; templateName: string; summary: string; restricted: boolean; version: number; note: string; parliamentSystem: string; parliamentSeats: number; executiveSelection: string } | null;
+  offices: { officeKey: string; name: string; selection: string; isExecutive: boolean; mayAppoint: boolean; maySpend: boolean; mayPropose: boolean; mayDiplomacy: boolean; holder: string | null; holderParty: string | null }[];
+  parties: { id: string; name: string; abbreviation: string; platform: string; members: number; balance: number; leader: string | null }[];
+  members: { username: string; party: string }[];
+  elections: { id: string; kind: string; status: string; officeKey: string | null; officeName: string | null; round: number; seatCount: number; secret: boolean; partyName: string | null; registering: boolean; voting: boolean; registrationEnds: string | Date; votingEnds: string | Date }[];
+  candidates: { electionId: string; characterId: string; username: string; partyId: string | null; party: string | null; abbreviation: string | null; supportPoints: number }[];
+  openTallies: { electionId: string; choiceId: string | null; choiceValue: string | null; votes: number; label: string | null }[];
+  countedElections: { id: string; kind: string; officeKey: string | null; round: number; seatCount: number; votingEnds: string | Date; tallies: { label: string; votes: number }[] }[];
+  bills: { id: string; title: string; body: string; status: string; effectKey: string; effectValue: number; thresholdPercent: number; sponsor: string | null; voting: boolean; votingEnds: string | Date; yes: number; no: number }[];
   events: { kind: string; detail: string; createdAt: string | Date }[];
-  seats: { username: string; party: string | null }[];
+  seats: { id: string; username: string | null; partyId: string | null; party: string | null; abbreviation: string | null }[];
   investigations: { id: string; username: string; reason: string }[];
   policies: { effectKey: string; effectValue: number }[];
   treasury: number;
-  salesTax: number;
+  salesTax: number | null;
   relations: { iso2: string; name: string; status: string; note: string; updatedAt: string | Date }[];
   treaties: { title: string; status: string; iso2: string; name: string; createdAt: string | Date }[];
-  coalition: { partyA: string; partyB: string } | null;
+  diplomacyEvents: { kind: string; detail: string; createdAt: string | Date }[];
+  coalition: { partyA: string; partyB: string; partyAId: string; partyBId: string } | null;
   countries: { id: string; iso2: string; name: string }[];
+  canDiplomacy: boolean;
+  atHome: boolean;
+  homeIso2: string | null;
 };
 
 export function PoliticsDesk({ desk }: { desk: Desk }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(politicsAction, null);
   const [key] = useState(() => crypto.randomUUID());
   const [spendKey] = useState(() => crypto.randomUUID());
+  const [eventKind, setEventKind] = useState("all");
   return (
     <div className="space-y-6">
-      {state?.ok ? <p className="text-sm text-gold">{state.message}</p> : null}
-      {state && !state.ok ? <p className="text-sm text-danger">{state.error}</p> : null}
+      <ActionFeedback state={state} />
       <section className="panel">
         <h2 className="section-title">Game constitution</h2>
         {desk.constitution ? (
@@ -69,34 +84,84 @@ export function PoliticsDesk({ desk }: { desk: Desk }) {
           </form>
         )}
       </section>
+      <section className="grid gap-3 sm:grid-cols-2">
+        <div className="panel text-sm">
+          <p className="kicker">Executive</p>
+          {desk.offices.filter((office) => office.isExecutive).length === 0 ? <p className="mt-1 text-muted">No executive office is defined.</p> : null}
+          <ul className="mt-1 space-y-1">
+            {desk.offices.filter((office) => office.isExecutive).map((office) => (
+              <li key={office.officeKey}>
+                {office.name}: {office.holder ?? "vacant"}
+                {office.holderParty ? ` · ${office.holderParty}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="panel text-sm">
+          <p className="kicker">Current decisions</p>
+          <p className="mt-1">{desk.coalition ? `Coalition: ${desk.coalition.partyA} and ${desk.coalition.partyB}.` : "No coalition agreement is active."}</p>
+          <p>{desk.elections.length === 0 ? "No election is open." : `${desk.elections.length} open ${desk.elections.length === 1 ? "election" : "elections"}.`}</p>
+          <p>{desk.bills.filter((bill) => bill.status === "voting").length === 0 ? "No bill is open for votes." : `${desk.bills.filter((bill) => bill.status === "voting").length} ${desk.bills.filter((bill) => bill.status === "voting").length === 1 ? "bill is" : "bills are"} open for votes.`}</p>
+        </div>
+      </section>
       <section>
         <h2 className="section-title">Offices</h2>
         {desk.offices.length === 0 ? <p className="mt-2 text-sm text-muted">No offices exist until a game constitution is adopted. Real-world officeholders are not shown.</p> : null}
-        <ul className="mt-2 space-y-1 text-sm">
-          {desk.offices.map((office) => (
-            <li key={office.officeKey}>
-              {office.name}: {office.holder ?? "vacant"}
-            </li>
-          ))}
+        <ul className="mt-2 space-y-2 text-sm">
+          {desk.offices.map((office) => {
+            const powers = [
+              office.isExecutive ? "executive" : "",
+              office.mayAppoint ? "appoint" : "",
+              office.maySpend ? "spend" : "",
+              office.mayPropose ? "propose laws" : "",
+              office.mayDiplomacy ? "diplomacy" : "",
+            ].filter(Boolean);
+            return (
+              <li key={office.officeKey}>
+                <p>
+                  {office.name}: {office.holder ? <Link href={`/characters/${encodeURIComponent(office.holder)}`} className="text-gold">{office.holder}</Link> : "vacant"}
+                  {office.holderParty ? <span className="text-muted"> · {office.holderParty}</span> : null}
+                </p>
+                <p className="text-xs text-muted">
+                  {selectionLabel(office.selection)}
+                  {powers.length > 0 ? ` Authority: ${powers.join(", ")}.` : ""}
+                </p>
+              </li>
+            );
+          })}
         </ul>
       </section>
       <section>
         <h2 className="section-title">Parliament</h2>
-        <form action={action} className="mt-2">
-          <input type="hidden" name="intent" value="form" />
-          <input type="hidden" name="countryId" value={desk.countryId} />
-          <button disabled={pending} className="btn btn-secondary">
-            Form government from the largest party
-          </button>
-        </form>
-        {desk.seats.length === 0 ? <p className="mt-2 text-sm text-muted">No game seats have been filled.</p> : null}
-        <ul className="mt-2 text-sm">
-          {desk.seats.map((seat) => (
-            <li key={`${seat.username}-${seat.party}`}>
-              {seat.username} · {seat.party ?? "independent"}
-            </li>
-          ))}
-        </ul>
+        {desk.constitution?.executiveSelection === "parliamentary" ? (
+          <form action={action} className="mt-2" onSubmit={(event) => {
+            if (!window.confirm("Form the government from your party or its coalition? The server seats you only when that bloc has more seats than any rival and the executive office is vacant.")) event.preventDefault();
+          }}>
+            <input type="hidden" name="intent" value="form" />
+            <input type="hidden" name="countryId" value={desk.countryId} />
+            <button disabled={pending} className="btn btn-secondary">
+              Form government from the largest party
+            </button>
+          </form>
+        ) : (
+          <p className="mt-2 text-sm text-muted">This constitution does not form a government from parliament.</p>
+        )}
+        <ParliamentView
+          seats={desk.seats}
+          capacity={desk.constitution?.parliamentSeats ?? 0}
+          parliamentSystem={desk.constitution?.parliamentSystem ?? "none"}
+          executiveSelection={desk.constitution?.executiveSelection ?? "claim"}
+          coalition={desk.coalition}
+        />
+        {desk.bills.some((bill) => bill.status === "voting") ? (
+          <p className="mt-3 text-sm">
+            <a href="#legislation" className="text-gold">
+              {desk.bills.filter((bill) => bill.status === "voting").length} bill{desk.bills.filter((bill) => bill.status === "voting").length === 1 ? " is" : "s are"} open for votes
+            </a>
+          </p>
+        ) : (
+          <p className="mt-3 text-sm text-muted">No bill is open for votes.</p>
+        )}
       </section>
       <section className="grid gap-3 sm:grid-cols-2">
         <div className="panel">
@@ -105,8 +170,14 @@ export function PoliticsDesk({ desk }: { desk: Desk }) {
         </div>
         <div className="panel">
           <p className="kicker">Sales tax</p>
-          <p className="num mt-1 text-xl">{desk.salesTax}%</p>
-          <p className="mt-2 text-sm text-muted">{POLICY_EFFECTS.sales_tax_percent}</p>
+          {desk.salesTax === null ? (
+            <p className="mt-1 text-sm text-muted">No sales-tax law is in effect. A market purchase is unchanged.</p>
+          ) : (
+            <>
+              <p className="num mt-1 text-xl">{desk.salesTax}%</p>
+              <p className="mt-2 text-sm text-muted">{POLICY_EFFECTS.sales_tax_percent}</p>
+            </>
+          )}
           <ul className="mt-2 space-y-2 text-sm text-muted">
             {desk.policies.filter((policy) => policy.effectKey !== "sales_tax_percent").length === 0 ? (
               <li>No other policy is in effect.</li>
@@ -128,13 +199,18 @@ export function PoliticsDesk({ desk }: { desk: Desk }) {
         <ul className="mt-2 space-y-2">
           {desk.parties.map((party) => (
             <li key={party.id} className="panel text-sm">
+              <div className="flex items-start gap-3">
+                <EntityMark kind="party" code={party.abbreviation} toneSeed={party.id} label={party.name} />
+                <div className="min-w-0">
               <h3 className="font-serif text-xl">
                 {party.name} ({party.abbreviation})
               </h3>
               <p className="text-muted">{party.platform || "No platform text."}</p>
               <p>
-                {party.members} members · treasury {party.balance}
+                Leader {party.leader ?? "unrecorded"} · {party.members} members · {desk.seats.filter((seat) => seat.partyId === party.id).length} seated · treasury {party.balance}
               </p>
+                </div>
+              </div>
               <form action={action}>
                 <input type="hidden" name="intent" value="join" />
                 <input type="hidden" name="partyId" value={party.id} />
@@ -170,70 +246,18 @@ export function PoliticsDesk({ desk }: { desk: Desk }) {
         </form>
       </section>
       {desk.constitution ? (
-        <section className="space-y-2">
-          <h2 className="section-title">Elections</h2>
-          <form action={action} className="flex flex-wrap gap-2">
-            <input type="hidden" name="intent" value="schedule" />
-            <input type="hidden" name="countryId" value={desk.countryId} />
-            <select name="kind" aria-label="Election kind" className="field">
-              <option value="fptp_office">First past the post</option>
-              <option value="two_round">Two-round</option>
-              <option value="pr_parliament">Proportional parliament</option>
-              <option value="party_leadership">Party leadership</option>
-              <option value="confidence">Confidence</option>
-            </select>
-            <select name="officeKey" aria-label="Office" className="field">
-              {desk.offices.map((office) => (
-                <option key={office.officeKey} value={office.officeKey}>
-                  {office.name}
-                </option>
-              ))}
-            </select>
-            <button disabled={pending} className="btn btn-secondary">
-              Schedule
-            </button>
-          </form>
-          {desk.elections.length === 0 ? <p className="text-sm text-muted">No election is open.</p> : null}
-          {desk.elections.map((election) => (
-            <div key={election.id} className="panel text-sm">
-              <p>
-                {election.kind} {election.officeKey ?? ""} · {election.registering ? "registration" : election.voting ? "voting" : "ready to count"} · {election.status}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <form action={action}>
-                  <input type="hidden" name="intent" value="advance" />
-                  <input type="hidden" name="electionId" value={election.id} />
-                  <button disabled={pending} className="btn btn-secondary">Advance period</button>
-                </form>
-                <form action={action}>
-                  <input type="hidden" name="intent" value="register" />
-                  <input type="hidden" name="electionId" value={election.id} />
-                  <button disabled={pending} className="btn btn-secondary">Register</button>
-                </form>
-                <form action={action}>
-                  <input type="hidden" name="intent" value="speech" />
-                  <input type="hidden" name="electionId" value={election.id} />
-                  <button disabled={pending} className="btn btn-secondary">Speech</button>
-                </form>
-                <form action={action} className="flex gap-2">
-                  <input type="hidden" name="intent" value="vote" />
-                  <input type="hidden" name="electionId" value={election.id} />
-                  <input type="hidden" name="choiceKind" value={election.kind === "pr_parliament" ? "party" : election.kind === "confidence" ? "yesno" : "character"} />
-                  <input name="choiceId" defaultValue={election.kind === "pr_parliament" ? "" : desk.characterId} aria-label="Candidate or party id" placeholder="Candidate or party id" className="field" />
-                  <input name="choiceValue" aria-label="yes or no" placeholder="yes or no" className="field w-24" />
-                  <button disabled={pending} className="btn btn-primary">Vote</button>
-                </form>
-                <form action={action}>
-                  <input type="hidden" name="intent" value="close" />
-                  <input type="hidden" name="electionId" value={election.id} />
-                  <button disabled={pending} className="btn btn-secondary">Count</button>
-                </form>
-              </div>
-            </div>
-          ))}
-        </section>
+        <ElectionBoard
+          elections={desk.elections}
+          candidates={desk.candidates}
+          tallies={desk.openTallies}
+          counted={desk.countedElections}
+          offices={desk.offices}
+          countryId={desk.countryId}
+          action={action}
+          pending={pending}
+        />
       ) : null}
-      <section className="space-y-2">
+      <section id="legislation" className="space-y-2">
         <h2 className="section-title">Legislation and spending</h2>
         <p className="text-sm text-muted">
           A bill is not in effect while it is voting. After the deadline, the world tick counts the recorded yes and no votes once. No votes, or a tie, rejects the bill and writes no policy. A passing bill writes one policy version. Counting it yourself uses that same result.
@@ -264,8 +288,19 @@ export function PoliticsDesk({ desk }: { desk: Desk }) {
               {bill.title} · {bill.status} · {bill.effectKey.replaceAll("_", " ")} <span className="num">{bill.effectValue}</span>
             </p>
             <p className="mt-1 text-muted">
+              {bill.sponsor ? `Proposed by ${bill.sponsor}. ` : ""}
+              Threshold {bill.thresholdPercent}% of the recorded votes, and more yes than no.
+            </p>
+            {bill.body ? <p className="mt-1">{bill.body}</p> : null}
+            <p className="mt-1 text-muted">
               <span className="num">{bill.yes}</span> yes · <span className="num">{bill.no}</span> no · voting ends {formatUtc(bill.votingEnds)}
             </p>
+            {bill.yes + bill.no > 0 ? (
+              <div className="chamber-bar mt-2" aria-hidden="true">
+                <span className="chamber-bar-segment" data-tone="success" style={{ width: `${(bill.yes / (bill.yes + bill.no)) * 100}%` }} />
+                <span className="chamber-bar-segment" data-tone="danger" style={{ width: `${(bill.no / (bill.yes + bill.no)) * 100}%` }} />
+              </div>
+            ) : null}
             <p className="mt-1 text-muted">
               {bill.status === "enacted"
                 ? "This bill wrote a policy version."
@@ -276,13 +311,18 @@ export function PoliticsDesk({ desk }: { desk: Desk }) {
                     : "The deadline has passed. The next world tick counts these votes."}
             </p>
             {POLICY_EFFECTS[bill.effectKey] ? <p className="mt-1 text-muted">{POLICY_EFFECTS[bill.effectKey]}</p> : null}
-            <form action={action} className="mt-2 inline">
+            <form action={action} className="mt-2 inline" onSubmit={(event) => {
+              const vote = (event.nativeEvent as SubmitEvent).submitter?.getAttribute("value");
+              if (!window.confirm(`Record a ${vote === "no" ? "no" : "yes"} vote on this bill? A recorded vote cannot be changed.`)) event.preventDefault();
+            }}>
               <input type="hidden" name="intent" value="vote-bill" />
               <input type="hidden" name="billId" value={bill.id} />
               <button name="vote" value="yes" disabled={pending || !bill.voting || bill.status !== "voting"} className="btn btn-secondary">Yes</button>
               <button name="vote" value="no" disabled={pending || !bill.voting || bill.status !== "voting"} className="btn btn-secondary ml-2">No</button>
             </form>
-            <form action={action} className="mt-2 inline">
+            <form action={action} className="mt-2 inline" onSubmit={(event) => {
+              if (!window.confirm("Count this bill? A passing vote writes one policy. No votes, or a tie, rejects it and writes nothing.")) event.preventDefault();
+            }}>
               <input type="hidden" name="intent" value="close-bill" />
               <input type="hidden" name="billId" value={bill.id} />
               <button disabled={pending || bill.voting || bill.status !== "voting"} className="btn btn-secondary ml-2">Count bill</button>
@@ -292,11 +332,30 @@ export function PoliticsDesk({ desk }: { desk: Desk }) {
         <form action={action} className="flex flex-wrap gap-2">
           <input type="hidden" name="intent" value="appoint" />
           <input type="hidden" name="countryId" value={desk.countryId} />
-          <input name="officeKey" aria-label="Office key" placeholder="Office key" className="field" />
-          <input name="username" aria-label="Username" placeholder="Username" className="field" />
-          <button disabled={pending} className="btn btn-secondary">Appoint</button>
+          <select name="officeKey" aria-label="Office to fill" className="field" defaultValue={desk.offices.find((office) => office.selection === "appointment")?.officeKey ?? ""}>
+            {desk.offices.filter((office) => office.selection === "appointment").map((office) => (
+              <option key={office.officeKey} value={office.officeKey}>
+                {office.name}
+              </option>
+            ))}
+          </select>
+          {desk.members.length > 0 ? (
+            <select name="username" aria-label="Party member" className="field">
+              {desk.members.map((member) => (
+                <option key={member.username} value={member.username}>
+                  {member.username} · {member.party}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input name="username" aria-label="Username" placeholder="Username" className="field" />
+          )}
+          <button disabled={pending || desk.offices.every((office) => office.selection !== "appointment")} className="btn btn-secondary">Appoint</button>
         </form>
-        <form action={action} className="flex flex-wrap gap-2">
+        {desk.offices.every((office) => office.selection !== "appointment") ? <p className="text-sm text-muted">No office is filled by appointment.</p> : null}
+        <form action={action} className="flex flex-wrap gap-2" onSubmit={(event) => {
+          if (!window.confirm("Pay this amount from the government account? Paying your own character opens an investigation.")) event.preventDefault();
+        }}>
           <input type="hidden" name="intent" value="spend" />
           <input type="hidden" name="countryId" value={desk.countryId} />
           <input type="hidden" name="idempotencyKey" value={spendKey} />
@@ -327,111 +386,81 @@ export function PoliticsDesk({ desk }: { desk: Desk }) {
             <button name="ruling" value="dismiss" disabled={pending} className="btn btn-secondary ml-2">Dismiss</button>
           </form>
         ))}
-        <form action={action} className="flex flex-wrap gap-2">
-          <input type="hidden" name="intent" value="succession" />
-          <input type="hidden" name="countryId" value={desk.countryId} />
-          <input name="username" aria-label="Successor username" placeholder="Successor username" className="field" />
-          <button disabled={pending} className="btn btn-secondary">Record game succession</button>
-        </form>
+        {desk.offices.some((office) => office.selection === "succession" && !office.holder) ? (
+          <>
+            <form action={action} onSubmit={(event) => {
+              if (!window.confirm("Claim the vacant monarchy for your character? The server accepts this only in your political home, and only while the office is empty.")) event.preventDefault();
+            }}>
+              <input type="hidden" name="intent" value="claim-monarchy" />
+              <input type="hidden" name="countryId" value={desk.countryId} />
+              <button disabled={pending} className="btn btn-secondary">Claim the vacant monarchy</button>
+            </form>
+            <form action={action} className="flex flex-wrap gap-2">
+              <input type="hidden" name="intent" value="succession" />
+              <input type="hidden" name="countryId" value={desk.countryId} />
+              <input name="username" aria-label="Successor username" placeholder="Successor username" className="field" />
+              <button disabled={pending} className="btn btn-secondary">Record game succession</button>
+            </form>
+          </>
+        ) : null}
         <div className="flex flex-wrap gap-2">
-          <form action={action}>
-            <input type="hidden" name="intent" value="claim" />
-            <input type="hidden" name="countryId" value={desk.countryId} />
-            <button disabled={pending} className="btn btn-secondary">Claim vacant ruler office</button>
-          </form>
-          <form action={action}>
-            <input type="hidden" name="intent" value="challenge" />
-            <input type="hidden" name="countryId" value={desk.countryId} />
-            <button disabled={pending} className="btn btn-secondary">Challenge ruler</button>
-          </form>
-          <form action={action}>
-            <input type="hidden" name="intent" value="emergency" />
-            <input type="hidden" name="countryId" value={desk.countryId} />
-            <button disabled={pending} className="btn btn-secondary">Declare emergency restrictions</button>
-          </form>
+          {desk.offices.some((office) => office.selection === "claim") ? (
+            <>
+              <form action={action} onSubmit={(event) => {
+                if (!window.confirm("Claim the vacant ruler office? The server allows this for a party leader when no larger party exists.")) event.preventDefault();
+              }}>
+                <input type="hidden" name="intent" value="claim" />
+                <input type="hidden" name="countryId" value={desk.countryId} />
+                <button disabled={pending} className="btn btn-secondary">Claim vacant ruler office</button>
+              </form>
+              <form action={action} onSubmit={(event) => {
+                if (!window.confirm("Challenge the ruler? The server replaces them only when your party has more members.")) event.preventDefault();
+              }}>
+                <input type="hidden" name="intent" value="challenge" />
+                <input type="hidden" name="countryId" value={desk.countryId} />
+                <button disabled={pending} className="btn btn-secondary">Challenge ruler</button>
+              </form>
+            </>
+          ) : null}
+          {desk.constitution?.templateId === "authoritarian" || desk.constitution?.templateId === "dictatorship" ? (
+            <form action={action} onSubmit={(event) => {
+              if (!window.confirm("Restrict new opposition parties under this game constitution?")) event.preventDefault();
+            }}>
+              <input type="hidden" name="intent" value="emergency" />
+              <input type="hidden" name="countryId" value={desk.countryId} />
+              <button disabled={pending} className="btn btn-secondary">Declare emergency restrictions</button>
+            </form>
+          ) : null}
         </div>
       </section>
-      <section className="panel space-y-3">
-        <h2 className="section-title">Diplomacy</h2>
-        <p className="text-sm text-muted">Statuses and treaties are game records. A treaty has no military effect, and a sanction only blocks the routes the server already checks.</p>
-        {desk.coalition ? (
-          <p className="text-sm">
-            Active coalition: {desk.coalition.partyA} and {desk.coalition.partyB}
-          </p>
-        ) : (
-          <p className="text-sm text-muted">No coalition agreement is active.</p>
-        )}
-        {desk.relations.length === 0 ? <p className="text-sm text-muted">No diplomatic status is recorded with another country.</p> : null}
-        <ul className="space-y-2 text-sm">
-          {desk.relations.map((relation) => (
-            <li key={relation.iso2} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line pb-2">
-              <span>
-                {relation.name} <span className="text-muted">({relation.iso2})</span>
-              </span>
-              <span className={relation.status === "sanctioned" ? "text-danger" : "text-ink"}>{relation.status}</span>
-              <span className="w-full text-xs text-faint">
-                {relation.note ? `${relation.note} · ` : ""}
-                Updated {formatUtc(relation.updatedAt)}
-              </span>
-            </li>
-          ))}
-        </ul>
-        {desk.treaties.length === 0 ? <p className="text-sm text-muted">No treaty is signed.</p> : null}
-        <ul className="space-y-2 text-sm">
-          {desk.treaties.map((treaty) => (
-            <li key={`${treaty.iso2}-${treaty.title}`}>
-              {treaty.title} · {treaty.name} · {treaty.status}
-              <span className="block text-xs text-faint">{formatUtc(treaty.createdAt)}</span>
-            </li>
-          ))}
-        </ul>
-        <form action={action} className="grid gap-2 sm:grid-cols-2">
-          <p className="text-sm text-muted sm:col-span-2">Set a status with another country. The server allows this only for an office that may conduct diplomacy.</p>
-          <input type="hidden" name="intent" value="diplomacy" />
-          <select name="otherCountryId" aria-label="Other country" className="field" defaultValue={desk.countries[0]?.id ?? ""}>
-            {desk.countries.map((country) => (
-              <option key={country.id} value={country.id}>
-                {country.name}
-              </option>
-            ))}
-          </select>
-          <select name="status" aria-label="Diplomatic status" className="field" defaultValue="neutral">
-            <option value="friendly">Friendly</option>
-            <option value="neutral">Neutral</option>
-            <option value="strained">Strained</option>
-            <option value="sanctioned">Sanctioned</option>
-          </select>
-          <input name="note" maxLength={200} aria-label="Short note" placeholder="Short note" className="field sm:col-span-2" />
-          <button disabled={pending} className="btn btn-secondary">
-            Save status
-          </button>
-        </form>
-        <form action={action} className="flex flex-wrap items-end gap-2">
-          <label className="text-sm">
-            Other country
-            <select name="iso2" className="field" defaultValue={desk.countries[0]?.iso2 ?? ""}>
-              {desk.countries.map((country) => (
-                <option key={country.iso2} value={country.iso2}>
-                  {country.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm">
-            Treaty title
-            <input name="title" aria-label="Short title" placeholder="Short title" className="field" />
-          </label>
-          <input type="hidden" name="intent" value="treaty" />
-          <button disabled={pending} className="btn btn-secondary">
-            Sign treaty
-          </button>
-        </form>
-      </section>
+      <DiplomacyPanel
+        countryName={desk.countryName}
+        homeIso2={desk.homeIso2}
+        canAct={desk.canDiplomacy}
+        atHome={desk.atHome}
+        relations={desk.relations}
+        treaties={desk.treaties}
+        events={desk.diplomacyEvents}
+        countries={desk.countries}
+        coalition={desk.coalition}
+        action={action}
+        pending={pending}
+      />
       <section className="panel">
         <h2 className="section-title">Recent game events</h2>
+        <p className="text-sm text-muted">The latest stored records for this country. This is not a complete archive.</p>
+        <label className="mt-2 block text-sm">
+          Event type
+          <select className="field" value={eventKind} onChange={(event) => setEventKind(event.target.value)}>
+            <option value="all">All stored kinds</option>
+            {[...new Set(desk.events.map((item) => item.kind))].map((kind) => (
+              <option key={kind} value={kind}>{kind}</option>
+            ))}
+          </select>
+        </label>
         {desk.events.length === 0 ? <p className="mt-2 text-sm text-muted">No political events have been recorded.</p> : null}
         <ul className="mt-2 space-y-1 text-sm">
-          {desk.events.map((item, index) => (
+          {desk.events.filter((item) => eventKind === "all" || item.kind === eventKind).map((item, index) => (
             <li key={`${item.kind}-${index}`}>
               <p>
                 {item.kind}: {item.detail}

@@ -17,7 +17,7 @@ export default async function InventoryPage() {
       <div>
         <p className="kicker">Stores</p>
         <h1 className="page-title">Inventory</h1>
-        <p className="text-sm text-muted">Stacks you hold. There is no equipment slot or item action beyond what a mission already consumes.</p>
+        <p className="text-sm text-muted">Stacks you hold. There is no equipment slot. A mission that names an item is what spends it.</p>
       </div>
       <InventoryDesk items={sheet.inventory} currency={sheet.currency} />
       <p className="text-sm">

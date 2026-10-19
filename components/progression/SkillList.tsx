@@ -4,16 +4,12 @@ import { useEffect, useState } from "react";
 import { useActionState } from "react";
 import { practiceSkillAction, spendSkillPointAction } from "@/lib/actions/progression";
 import type { ActionResult } from "@/lib/actions/account";
+import { skillProgress } from "@/lib/progression/rules";
 import type { CharacterSheet } from "@/lib/progression/service";
 import { formatUtc } from "@/lib/world/clock";
+import { SkillMeter } from "@/components/progression/SkillMeter";
 
 type Skill = CharacterSheet["skills"][number];
-
-function skillInto(skill: Skill): { into: number; span: number } {
-  if (skill.level >= skill.maxLevel || skill.xpPerLevel <= 0) return { into: skill.xp, span: 0 };
-  const into = skill.xp - skill.level * skill.xpPerLevel;
-  return { into: Math.max(0, into), span: skill.xpPerLevel };
-}
 
 export function SkillList({
   skills,
@@ -49,7 +45,7 @@ export function SkillList({
         {skills.map((skill) => {
           const heading = skill.category === category ? null : skill.category;
           category = skill.category;
-          const progress = skillInto(skill);
+          const progress = skillProgress(skill.xp, skill.level, skill.xpPerLevel, skill.maxLevel);
           const atMax = skill.level >= skill.maxLevel;
           const spendReason = atMax ? "Already at the maximum level." : skillPoints < 1 ? "No skill points are available." : "";
           return (
@@ -66,23 +62,7 @@ export function SkillList({
                   <p className="mt-1 text-sm text-muted">{skill.description}</p>
                   <p className="mt-1 text-sm text-ink">{skill.benefit}</p>
                   <div className="mt-3">
-                    <div className="mb-1 flex justify-between text-xs text-muted">
-                      <span>{atMax ? "Maximum level" : "Toward the next level"}</span>
-                      <span className="num">{progress.span === 0 ? "—" : `${progress.into} / ${progress.span} skill XP`}</span>
-                    </div>
-                    <div
-                      className="h-1.5 overflow-hidden bg-obsidian"
-                      role="progressbar"
-                      aria-valuenow={progress.span === 0 ? 100 : Math.min(100, Math.round((progress.into / progress.span) * 100))}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-label={`${skill.name} progress`}
-                    >
-                      <div
-                        className="h-full bg-gold"
-                        style={{ width: progress.span === 0 ? "100%" : `${Math.min(100, Math.round((progress.into / progress.span) * 100))}%` }}
-                      />
-                    </div>
+                    <SkillMeter name={skill.name} into={progress.into} span={progress.span} />
                   </div>
                 </div>
                 <div className="flex flex-col items-stretch gap-2">

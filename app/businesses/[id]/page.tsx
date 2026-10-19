@@ -26,7 +26,7 @@ export default async function BusinessPage({ params }: { params: Promise<{ id: s
     ),
   ]);
   return (
-    <section className="max-w-3xl">
+    <section className="max-w-5xl">
       <Link href="/businesses" className="text-sm text-gold">
         All businesses
       </Link>

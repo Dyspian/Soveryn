@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { connectionAction } from "@/lib/actions/social";
+import { ActionFeedback } from "@/components/feedback/ActionFeedback";
 import type { ActionResult } from "@/lib/actions/account";
 
 export function ConnectionPanel({
@@ -20,8 +21,7 @@ export function ConnectionPanel({
   return (
     <section className="mt-6 border-t border-line pt-4 text-sm">
       <h2 className="section-title">Connection</h2>
-      {state?.ok ? <p className="mt-2 text-gold">{state.message}</p> : null}
-      {state && !state.ok ? <p className="mt-2 text-danger">{state.error}</p> : null}
+      <ActionFeedback state={state} className="mt-2" />
       {blocked && !blockedByViewer ? <p className="mt-2 text-muted">Contact is not available.</p> : null}
       {blocked && blockedByViewer ? <p className="mt-2 text-muted">You blocked contact from this character.</p> : null}
       {status === "pending" && outgoing ? <p className="mt-2 text-muted">Your request is waiting.</p> : null}

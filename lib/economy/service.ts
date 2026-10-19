@@ -3,6 +3,7 @@ import type { Sql } from "@/lib/db";
 import { nodeBonus, recordEconomyProgress } from "@/lib/progression/service";
 import { distanceKm, simulatedTransit } from "@/lib/economy/distance";
 import { asCount, EconomyError, wholeAmount } from "@/lib/economy/errors";
+import { marketFee } from "@/lib/economy/fees";
 import { claimRequest, finishRequest } from "@/lib/economy/idempotency";
 
 type Party = { kind: "character" | "business" | "system" | "party" | "government" | "organization"; id: string | null };
@@ -53,10 +54,7 @@ export function productionOperatingCost(catalog: number, productionLevel: number
   return Math.max(1, catalog - skillReduction - extra);
 }
 
-export function marketFee(baseFee: number, discountPercent: number): number {
-  const discount = Math.max(0, discountPercent);
-  return Math.max(0, baseFee - Math.floor((baseFee * discount) / 100));
-}
+export { marketFee };
 
 export const WORK_SHIFT_COOLDOWN_FLOOR = 60;
 export const WORK_SHIFT_COOLDOWN_CEILING = 86_400;

@@ -39,7 +39,7 @@ export function FoundBusinessForm({
         The startup fee is charged from your character. The registered city is the business location in the game, not a real-world company address. After it opens, you or a hired worker earns the result described for the category by working a shift.
       </p>
       {selected ? <p className="text-sm text-muted">{selected.guidance}</p> : null}
-      {state && !state.ok ? <p className="text-sm text-danger">{state.error}</p> : null}
+      {state && !state.ok ? <p className="text-sm text-danger" role="alert">{state.error}</p> : null}
       <input type="hidden" name="idempotencyKey" value={key} />
       <label className="block text-sm">
         Name

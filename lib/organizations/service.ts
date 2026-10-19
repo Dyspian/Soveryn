@@ -368,6 +368,11 @@ export async function markNoticeRead(sql: Sql, input: { userId: string; noticeId
   await sql.query("update organization_notices set read_at = now() where id = $1 and character_id = $2 and read_at is null", [input.noticeId, character.id]);
 }
 
+export async function markAllNoticesRead(sql: Sql, input: { userId: string }): Promise<void> {
+  const character = await lockCharacter(sql, input.userId);
+  await sql.query("update organization_notices set read_at = now() where character_id = $1 and read_at is null", [character.id]);
+}
+
 export function legalType(orgType: string): boolean {
   return isOrgType(orgType) ? ORG_TYPES[orgType as OrgType].legal : false;
 }

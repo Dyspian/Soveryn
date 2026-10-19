@@ -11,6 +11,7 @@ export type BusinessSummary = {
   balance: number;
   city: string;
   country: string;
+  iso2: string;
   placeId: string;
   countryId: string;
   status: string;
@@ -19,7 +20,7 @@ export type BusinessSummary = {
 export async function listMyBusinesses(sql: Sql, userId: string): Promise<BusinessSummary[]> {
   const rows = await sql.query<BusinessSummary & { balance: number | string }>(
     `select b.id, b.name, b.description, b.category, c.name as "categoryName", b.balance,
-            p.name as city, co.name as country, b.place_id as "placeId", b.country_id as "countryId", b.status
+            p.name as city, co.name as country, co.iso2, b.place_id as "placeId", b.country_id as "countryId", b.status
      from businesses b
      join characters ch on ch.id = b.owner_character_id
      join business_categories c on c.id = b.category
@@ -90,8 +91,8 @@ export async function loadBusiness(sql: Sql, userId: string, businessId: string)
        order by j.completes_at`,
       [business.id],
     ),
-    sql.query<{ id: string; resource: string; remaining: number; status: string; cooling: boolean }>(
-      `select s.id, t.name as resource, s.simulated_remaining as remaining, s.status,
+    sql.query<{ id: string; resourceId: string; resource: string; remaining: number; status: string; cooling: boolean }>(
+      `select s.id, s.resource_type_id as "resourceId", t.name as resource, s.simulated_remaining as remaining, s.status,
               coalesce(s.next_available_at > now(), false) as cooling
        from extraction_sites s join resource_types t on t.id = s.resource_type_id
        where s.business_id = $1`,
@@ -280,8 +281,8 @@ export async function viewerMarket(sql: Sql, userId: string, placeId: string) {
        order by pr.name`,
       [characterId, placeId],
     ),
-    sql.query<{ id: string; product: string; quantity: number; unitPrice: number; seller: string }>(
-      `select l.id, pr.name as product, l.quantity, l.unit_price as "unitPrice",
+    sql.query<{ id: string; productId: string; product: string; quantity: number; unitPrice: number; seller: string }>(
+      `select l.id, l.product_id as "productId", pr.name as product, l.quantity, l.unit_price as "unitPrice",
               case when l.seller_kind = 'business' then b.name else 'You' end as seller
        from market_listings l
        join products pr on pr.id = l.product_id
@@ -302,8 +303,8 @@ export async function viewerMarket(sql: Sql, userId: string, placeId: string) {
 }
 
 export async function openJobs(sql: Sql) {
-  return sql.query<{ id: string; title: string; wage: number; business: string; city: string; skill: string | null; minLevel: number }>(
-    `select p.id, p.title, p.wage, b.name as business, pl.name as city, s.name as skill, p.min_skill_level as "minLevel"
+  return sql.query<{ id: string; title: string; wage: number; business: string; category: string; city: string; skill: string | null; minLevel: number }>(
+    `select p.id, p.title, p.wage, b.name as business, b.category, pl.name as city, s.name as skill, p.min_skill_level as "minLevel"
      from job_postings p
      join businesses b on b.id = p.business_id
      join places pl on pl.id = b.place_id

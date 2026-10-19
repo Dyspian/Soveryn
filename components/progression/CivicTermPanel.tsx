@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EntityMark } from "@/components/game/EntityMark";
 import type { CivicTermView } from "@/lib/progression/terms";
 import { formatUtc } from "@/lib/world/clock";
 
@@ -26,8 +27,13 @@ export function CivicTermPanel({ term }: { term: CivicTermView }) {
           <dd className="mt-1">{formatUtc(term.endsAt)}</dd>
         </div>
         <div>
-          <dt className="kicker">{term.countryName}</dt>
-          <dd className="num mt-1">{term.countryRecorded} recorded</dd>
+          <dt className="kicker">Political home</dt>
+          <dd className="mt-1 flex items-center gap-2">
+            <EntityMark kind="country" code={term.countryIso2} label={term.countryName} size="sm" />
+            <span>
+              {term.countryName} · <span className="num">{term.countryRecorded}</span> recorded
+            </span>
+          </dd>
         </div>
       </dl>
       {term.status === "recorded" && term.sourceDetail ? <p className="mt-3 text-sm">{term.sourceDetail}</p> : null}

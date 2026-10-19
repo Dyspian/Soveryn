@@ -3,30 +3,25 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Emblem } from "@/components/brand/Emblem";
+import { Portrait } from "@/components/brand/Portrait";
+import { EntityMark } from "@/components/game/EntityMark";
 import { PageFrame } from "@/components/shell/PageFrame";
-import { GameNav } from "@/components/ui/GameNav";
+import { NoticeBell } from "@/components/organizations/NoticeBoard";
+import { GameNav, MobileDock } from "@/components/ui/GameNav";
+import type { NoticeFeed } from "@/lib/organizations/notices";
 import { acceptTermsAction, logoutAction } from "@/lib/actions/account";
 import type { SessionUser } from "@/lib/auth/session";
-
-const live = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/map", label: "World" },
-  { href: "/character", label: "Character" },
-  { href: "/skills", label: "Skills" },
-  { href: "/missions", label: "Missions" },
-  { href: "/events", label: "Events" },
-  { href: "/businesses", label: "Businesses" },
-  { href: "/market", label: "Market" },
-  { href: "/jobs", label: "Jobs" },
-  { href: "/politics", label: "Politics" },
-  { href: "/organizations", label: "Organizations" },
-];
+import type { ShellStatus } from "@/lib/game/shell";
 
 export function AppShell({
   user,
+  shell = null,
+  notices = null,
   children,
 }: {
   user: SessionUser | null;
+  shell?: ShellStatus | null;
+  notices?: NoticeFeed | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -43,8 +38,8 @@ export function AppShell({
             <Emblem className="h-8 w-8 text-gold" />
             <span className="font-serif text-xl tracking-[0.22em] text-ink">SOVERYN</span>
           </Link>
-          {user?.characterId ? <GameNav items={live} label="Primary" /> : <div className="hidden md:block" />}
-          <div className="order-2 flex shrink-0 items-center gap-3 text-sm md:order-3">
+          {user?.characterId ? <GameNav /> : <div className="hidden md:block" />}
+          <div className="order-2 ml-auto flex shrink-0 items-center gap-3 text-sm">
             {user?.role === "admin" ? (
               <>
                 <Link href="/admin/starting-locations" className="nav-link hidden xl:inline">
@@ -57,11 +52,7 @@ export function AppShell({
             ) : null}
             {user ? (
               <>
-                {user.username ? (
-                  <Link href="/character" className="nav-link hidden sm:inline">
-                    @{user.username}
-                  </Link>
-                ) : null}
+                {notices ? <NoticeBell feed={notices} /> : null}
                 <Link href="/account" className="nav-link">
                   Account
                 </Link>
@@ -78,6 +69,7 @@ export function AppShell({
             )}
           </div>
         </div>
+        {shell ? <ShellHud shell={shell} username={user?.username ?? null} /> : null}
       </header>
       {user && !user.termsAccepted ? (
         <form action={acceptTermsAction} className="border-b border-line bg-panel">
@@ -105,20 +97,61 @@ export function AppShell({
         {children}
       </PageFrame>
       </div>
-      <GameNav
-        variant="dock"
-        label="Mobile"
-        items={
-          user?.characterId
-            ? [
-                { href: "/dashboard", label: "Home" },
-                { href: "/map", label: "Map" },
-                { href: "/character", label: "Character" },
-                { href: "/businesses", label: "Business" },
-              ]
-            : [{ href: "/map", label: "Map" }]
-        }
-      />
+      {user?.characterId ? (
+        <MobileDock />
+      ) : (
+        <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-panel md:hidden" aria-label="Mobile">
+          <Link href="/map" className="nav-link inline-flex min-h-11 items-center px-3 py-3 text-xs">
+            Map
+          </Link>
+        </nav>
+      )}
+    </div>
+  );
+}
+
+function ShellHud({ shell, username }: { shell: ShellStatus; username: string | null }) {
+  const width = shell.xpSpan > 0 ? Math.min(100, Math.round((shell.xpInto / shell.xpSpan) * 100)) : 0;
+  return (
+    <div className="shell-status nav-scroll">
+      <Link href="/character" className="inline-flex min-w-0 shrink-0 items-center gap-2 text-ink">
+        <Portrait portraitKey={shell.portraitKey} className="h-6 w-6" />
+        <span>{username ? `@${username}` : "Character"}</span>
+      </Link>
+      <Link href="/character" className="shrink-0">
+        Level <span className="num text-ink">{shell.level}</span>
+        {shell.xpSpan > 0 ? <span className="num"> {shell.xpInto}/{shell.xpSpan}</span> : null}
+      </Link>
+      {shell.xpSpan > 0 ? (
+        <span
+          className="h-1.5 w-16 shrink-0 overflow-hidden bg-obsidian"
+          role="progressbar"
+          aria-valuenow={shell.xpInto}
+          aria-valuemin={0}
+          aria-valuemax={Math.max(shell.xpSpan, shell.xpInto)}
+          aria-label={`Experience toward the next level, ${shell.xpInto} of ${shell.xpSpan}`}
+        >
+          <span className="block h-full bg-gold" style={{ width: `${width}%` }} />
+        </span>
+      ) : null}
+      <Link href="/character" className="shrink-0">
+        Currency <span className="num text-ink">{shell.currencyLabel}</span>
+      </Link>
+      <span className="inline-flex min-w-0 shrink-0 items-center gap-2">
+        <EntityMark kind="country" code={shell.iso2} label={shell.countryName} size="sm" />
+        <Link href="/map" className="max-w-40 truncate text-ink">
+          {shell.cityName}
+        </Link>
+        <Link href={`/politics/${shell.iso2.toLowerCase()}`} className="max-w-40 truncate">
+          {shell.countryName}
+        </Link>
+      </span>
+      {shell.activeMission ? (
+        <Link href="/missions" className="max-w-64 shrink-0 truncate text-ink">
+          {shell.activeMission}
+          {shell.activeMissionCount > 1 ? ` · ${shell.activeMissionCount} active` : ""}
+        </Link>
+      ) : null}
     </div>
   );
 }

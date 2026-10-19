@@ -11,9 +11,10 @@ export async function listOrganizations(sql: Sql, characterId: string | null) {
     visibility: string;
     members: number;
     city: string;
+    emblemKey: string | null;
     mine: boolean;
   }>(
-    `select o.id, o.name, o.tag, o.org_type as "orgType", o.recruitment, o.visibility,
+    `select o.id, o.name, o.tag, o.org_type as "orgType", o.recruitment, o.visibility, o.emblem_key as "emblemKey",
             (select count(*)::int from organization_members m where m.organization_id = o.id and m.status = 'active') as members,
             p.name as city,
             exists (
@@ -207,12 +208,41 @@ export async function organizationDesk(sql: Sql, organizationId: string, charact
   };
 }
 
-export async function viewerNotices(sql: Sql, characterId: string) {
-  return sql.query<{ id: string; kind: string; detail: string; read: boolean }>(
-    `select id, kind, detail, read_at is not null as read
-     from organization_notices where character_id = $1 order by created_at desc limit 12`,
+export async function loadNoticeFeed(sql: Sql, characterId: string) {
+  const rows = await sql.query<{
+    id: string;
+    kind: string;
+    detail: string;
+    read: boolean;
+    createdAt: string | Date;
+    organizationId: string | null;
+    organizationName: string | null;
+    organizationTag: string | null;
+    unread: number;
+  }>(
+    `select n.id, n.kind, n.detail, n.read_at is not null as read, n.created_at as "createdAt",
+            n.organization_id as "organizationId", o.name as "organizationName", o.tag as "organizationTag",
+            (count(*) filter (where n.read_at is null) over ())::int as unread
+     from organization_notices n
+     left join organizations o on o.id = n.organization_id
+     where n.character_id = $1
+     order by (n.read_at is null) desc, n.created_at desc
+     limit 12`,
     [characterId],
   );
+  return {
+    unread: Number(rows[0]?.unread ?? 0),
+    notices: rows.map((notice) => ({
+      id: notice.id,
+      kind: notice.kind,
+      detail: notice.detail,
+      read: Boolean(notice.read),
+      createdAt: new Date(notice.createdAt).toISOString(),
+      organizationId: notice.organizationId,
+      organizationName: notice.organizationName,
+      organizationTag: notice.organizationTag,
+    })),
+  };
 }
 
 export async function underworldStatus(sql: Sql, characterId: string) {

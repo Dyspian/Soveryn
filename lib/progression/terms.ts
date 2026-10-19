@@ -10,6 +10,7 @@ export type CivicTermView = {
   rewardReputation: number;
   sourceDetail: string | null;
   countryName: string;
+  countryIso2: string;
   countryRecorded: number;
   history: Array<{ termKey: string; status: "open" | "recorded" | "missed"; recordedAt: string | null; sourceDetail: string | null }>;
 };
@@ -103,10 +104,11 @@ async function loadCivicTerm(sql: Sql, characterId: string, termKey: string): Pr
     status: "open" | "recorded" | "missed";
     sourceDetail: string | null;
     countryName: string;
+    countryIso2: string;
     countryRecorded: number;
   }>(
     `select t.term_key as "termKey", t.starts_at as "startsAt", t.ends_at as "endsAt", t.status,
-            event.detail as "sourceDetail", country.name as "countryName",
+            event.detail as "sourceDetail", country.name as "countryName", country.iso2 as "countryIso2",
             (select count(*)::int
              from character_terms recorded
              join characters resident on resident.id = recorded.character_id
@@ -138,6 +140,7 @@ async function loadCivicTerm(sql: Sql, characterId: string, termKey: string): Pr
     rewardReputation: reward,
     sourceDetail: row.sourceDetail,
     countryName: row.countryName,
+    countryIso2: row.countryIso2,
     countryRecorded: Number(row.countryRecorded),
     history: history.map((item) => ({
       termKey: item.termKey,

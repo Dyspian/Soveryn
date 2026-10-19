@@ -1,7 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
+import { EntityMark } from "@/components/game/EntityMark";
 import { jobAction } from "@/lib/actions/economy";
+import { formatCount } from "@/lib/game/format";
+import { ActionFeedback } from "@/components/feedback/ActionFeedback";
 import type { ActionResult } from "@/lib/actions/account";
 
 export function JobDesk({
@@ -9,24 +12,26 @@ export function JobDesk({
   applications,
   employment,
 }: {
-  jobs: { id: string; title: string; wage: number; business: string; city: string; skill: string | null; minLevel: number }[];
+  jobs: { id: string; title: string; wage: number; business: string; category: string; city: string; skill: string | null; minLevel: number }[];
   applications: { id: string; username: string; title: string }[];
   employment: { businessId: string; business: string; category: string; guidance: string; wage: number; status: string; cooling: boolean }[];
 }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(jobAction, null);
   return (
     <div className="space-y-6">
-      {state?.ok ? <p className="text-sm text-gold">{state.message}</p> : null}
-      {state && !state.ok ? <p className="text-sm text-danger">{state.error}</p> : null}
+      <ActionFeedback state={state} />
       <section>
         <h2 className="section-title">Your work</h2>
         {employment.length === 0 ? <p className="mt-2 text-sm text-muted">You have no employment record. Apply to an open job to work at another company.</p> : null}
         <ul className="mt-2 space-y-3">
           {employment.map((job) => (
             <li key={`${job.businessId}-${job.status}`} className="panel text-sm">
-              <p>
-                {job.business} · wage {job.wage} · {job.status}
-              </p>
+              <div className="flex items-start gap-3">
+                <EntityMark kind="business" id={job.category} label={job.category} size="sm" />
+                <div>
+                  <p>
+                    {job.business} · wage {formatCount(job.wage)} · {job.status}
+                  </p>
               {job.status === "active" ? (
                 <>
                   <p className="mt-2 text-muted">{job.guidance}</p>
@@ -39,6 +44,8 @@ export function JobDesk({
                   </form>
                 </>
               ) : null}
+                </div>
+              </div>
             </li>
           ))}
         </ul>
@@ -69,9 +76,12 @@ export function JobDesk({
         <ul className="mt-2 space-y-2">
           {jobs.map((job) => (
             <li key={job.id} className="panel text-sm">
+              <div className="flex items-start gap-3">
+                <EntityMark kind="business" id={job.category} label={job.category} size="sm" />
+                <div className="min-w-0">
               <h3 className="font-serif text-xl">{job.title}</h3>
               <p>
-                {job.business} · {job.city} · wage {job.wage}
+                {job.business} · {job.city} · wage {formatCount(job.wage)}
               </p>
               {job.skill ? (
                 <p className="text-muted">
@@ -85,6 +95,8 @@ export function JobDesk({
                   {pending ? "Applying…" : "Apply"}
                 </button>
               </form>
+                </div>
+              </div>
             </li>
           ))}
         </ul>

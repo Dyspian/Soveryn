@@ -9,12 +9,26 @@ import { siteVisitor } from "@/components/site/visitor";
 import { WorldIntelligenceFallback, WorldIntelligenceSection } from "@/components/site/WorldIntelligenceSection";
 import { RecordFallback, RecordSection } from "@/components/site/RecordSection";
 import { WorldPreview } from "@/components/site/WorldPreview";
+import { publicOrigin } from "@/lib/site/origin";
 import { getCurrentUser } from "@/lib/auth/session";
 
-export const metadata: Metadata = {
-  title: "SOVERYN",
-  description: "A persistent multiplayer sandbox on a real-world map. One character, a real starting city, and a world that continues while you are away.",
-};
+const description =
+  "SOVERYN is a persistent multiplayer sandbox on a real-world map, currently in beta. One character, a real starting city, and a world that continues while you are away.";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const origin = publicOrigin(process.env.SITE_URL);
+  return {
+    title: "SOVERYN",
+    description,
+    ...(origin ? { metadataBase: origin, alternates: { canonical: "/" } } : {}),
+    openGraph: {
+      title: "SOVERYN",
+      description,
+      type: "website",
+      ...(origin ? { url: "/", images: [{ url: "/website-background.jpg", alt: "Site artwork of a world map and a coastal city at dusk." }] } : {}),
+    },
+  };
+}
 
 export default async function HomePage() {
   const user = await getCurrentUser();

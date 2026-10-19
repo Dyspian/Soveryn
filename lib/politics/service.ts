@@ -875,6 +875,29 @@ export async function signTreaty(sql: Sql, input: { userId: string; otherCountry
   await event(sql, character.country_id, "treaty", `A game treaty was signed: ${title}. It has no military effect.`);
 }
 
+export async function claimMonarchy(sql: Sql, input: { userId: string; countryId: string }): Promise<void> {
+  const character = await lockCharacter(sql, input.userId);
+  const constitution = await constitutionFor(sql, input.countryId);
+  if (!constitution || character.country_id !== input.countryId) throw new PoliticsError("You can claim the monarchy only in your political home.");
+  const offices = await sql.query<{ id: string }>(
+    `select o.id from government_offices o
+     where o.constitution_id = $1 and o.selection = 'succession'
+     for update`,
+    [constitution.id],
+  );
+  const office = offices[0];
+  if (!office) throw new PoliticsError("This constitution has no monarchy to claim.");
+  const held = await sql.query<{ id: string }>("select id from officeholders where office_id = $1 and status = 'active'", [office.id]);
+  if (held.length > 0) throw new PoliticsError("The monarchy is already held.");
+  const member = await sql.query<{ party_id: string }>(
+    `select m.party_id from party_members m join parties p on p.id = m.party_id
+     where m.character_id = $1 and m.status = 'active' and p.country_id = $2`,
+    [character.id, input.countryId],
+  );
+  await seatHolder(sql, office.id, character.id, member[0]?.party_id ?? null);
+  await event(sql, input.countryId, "succession", "A resident claimed the vacant game monarchy. This is not a real monarch.");
+}
+
 export async function succeedMonarch(sql: Sql, input: { userId: string; countryId: string; characterId: string }): Promise<void> {
   const character = await lockCharacter(sql, input.userId);
   const constitution = await constitutionFor(sql, input.countryId);

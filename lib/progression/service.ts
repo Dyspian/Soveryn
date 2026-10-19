@@ -948,9 +948,10 @@ export type CharacterSheet = {
     id: string;
     name: string;
     description: string;
+    category: string;
     objectives: Array<{ id: string; description: string; kind: string; completed: boolean; progress: number; quantity: number }>;
   }>;
-  completedMissions: string[];
+  completedMissions: Array<{ id: string; name: string; category: string; completedAt: string | null }>;
   inventory: Array<{ id: string; name: string; description: string; category: string; quantity: number; stackLimit: number }>;
   events: Array<{ detail: string; xp: number; currency: number; createdAt: string }>;
 };
@@ -1107,6 +1108,7 @@ export async function loadCharacterSheet(sql: Sql, userId: string): Promise<Char
     id: string;
     name: string;
     description: string;
+    category: string;
     objective_id: string;
     objective: string;
     kind: string;
@@ -1114,7 +1116,7 @@ export async function loadCharacterSheet(sql: Sql, userId: string): Promise<Char
     progress: number;
     quantity: number;
   }>(
-    `select m.id, m.name, m.description, o.id as objective_id, o.description as objective, o.kind,
+    `select m.id, m.name, m.description, m.category, o.id as objective_id, o.description as objective, o.kind,
             co.completed, co.progress, o.quantity
      from character_missions cm
      join characters c on c.id = cm.character_id
@@ -1125,12 +1127,13 @@ export async function loadCharacterSheet(sql: Sql, userId: string): Promise<Char
      order by m.name, o.sort_order`,
     [userId],
   );
-  const completed = await sql.query<{ name: string }>(
-    `select m.name from character_missions cm
+  const completed = await sql.query<{ id: string; name: string; category: string; completedAt: string | Date | null }>(
+    `select m.id, m.name, m.category, cm.completed_at as "completedAt"
+     from character_missions cm
      join characters c on c.id = cm.character_id
      join missions m on m.id = cm.mission_id
      where c.user_id = $1 and cm.status = 'completed'
-     order by cm.completed_at`,
+     order by cm.completed_at desc nulls last, m.name`,
     [userId],
   );
   const inventory = await sql.query<{ id: string; name: string; description: string; category: string; quantity: number; stack_limit: number }>(
@@ -1157,6 +1160,7 @@ export async function loadCharacterSheet(sql: Sql, userId: string): Promise<Char
       id: mission.id,
       name: mission.name,
       description: mission.description,
+      category: mission.category,
       objectives: [],
     };
     current.objectives.push({
@@ -1235,7 +1239,12 @@ export async function loadCharacterSheet(sql: Sql, userId: string): Promise<Char
       availableAt: new Date(mission.available_at).toISOString(),
     })),
     activeMissions: [...activeMissions.values()],
-    completedMissions: completed.map((mission) => mission.name),
+    completedMissions: completed.map((mission) => ({
+      id: mission.id,
+      name: mission.name,
+      category: mission.category,
+      completedAt: mission.completedAt ? new Date(mission.completedAt).toISOString() : null,
+    })),
     inventory: inventory.map((item) => ({
       id: item.id,
       name: item.name,

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { EntityMark } from "@/components/game/EntityMark";
+import { progressWidth } from "@/lib/progression/mission-view";
 import { formatUtc } from "@/lib/world/clock";
 import type { WorldEventView } from "@/lib/world/events";
 
@@ -33,9 +35,12 @@ export function EventBoard({ events }: { events: WorldEventView[] }) {
         {open.map((event) => (
           <article key={event.id} className="panel">
             <p className="kicker">{statusLabel(event)}</p>
-            <h3 className="mt-1 font-serif text-xl">{event.title}</h3>
+            <div className="mt-2 flex items-start gap-3">
+              <EntityMark kind="country" code={event.iso2} label={event.countryName} />
+              <h3 className="font-serif text-xl">{event.title}</h3>
+            </div>
             <p className="mt-2 text-sm">{event.detail}</p>
-            <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
               <div>
                 <dt className="kicker">Country</dt>
                 <dd className="mt-1">
@@ -53,10 +58,24 @@ export function EventBoard({ events }: { events: WorldEventView[] }) {
                 <dd className="num mt-1">
                   {event.progress} / {event.goal}
                 </dd>
+                <div
+                  className="mt-2 h-1.5 overflow-hidden bg-obsidian"
+                  role="progressbar"
+                  aria-valuenow={event.progress}
+                  aria-valuemin={0}
+                  aria-valuemax={event.goal}
+                  aria-label={`${event.title} progress`}
+                >
+                  <div className="h-full bg-gold" style={{ width: `${progressWidth(event.progress, event.goal)}%` }} />
+                </div>
               </div>
               <div>
                 <dt className="kicker">{event.status === "scheduled" ? "Opens" : "Ends"}</dt>
                 <dd className="mt-1">{formatUtc(event.status === "scheduled" ? event.startsAt : event.endsAt)}</dd>
+              </div>
+              <div>
+                <dt className="kicker">Listed payment</dt>
+                <dd className="num mt-1">{event.reward}</dd>
               </div>
             </dl>
             <p className="mt-3 text-sm text-muted">{event.playerNote}</p>

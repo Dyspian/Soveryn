@@ -2,9 +2,11 @@
 
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
+import { ActionFeedback } from "@/components/feedback/ActionFeedback";
 import { organizationsAction } from "@/lib/actions/organizations";
 import type { ActionResult } from "@/lib/actions/account";
 import { Portrait } from "@/components/brand/Portrait";
+import { EntityMark } from "@/components/game/EntityMark";
 import { OPERATIONS, PERMISSIONS, RANK_KEYS } from "@/lib/organizations/domain";
 import { formatUtc } from "@/lib/world/clock";
 
@@ -141,10 +143,9 @@ export function OrganizationDesk({
 
   return (
     <div className="space-y-6">
-      {state?.ok ? <p className="text-sm text-gold">{state.message}</p> : null}
-      {state && !state.ok ? <p className="text-sm text-danger" role="alert">{state.error}</p> : null}
+      <ActionFeedback state={state} />
       <header className="flex items-start gap-4">
-        {org.emblemKey ? <Portrait portraitKey={org.emblemKey} className="h-14 w-14 shrink-0" /> : null}
+        {org.emblemKey ? <Portrait portraitKey={org.emblemKey} className="h-14 w-14 shrink-0" /> : <EntityMark kind="organization" code={org.tag} label={org.name} />}
         <div>
           <p className="kicker">Organization</p>
           <h1 className="page-title">

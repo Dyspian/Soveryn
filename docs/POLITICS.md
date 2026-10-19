@@ -13,7 +13,7 @@ Eight templates are stored in `government_templates` and copied into `government
 | Parliamentary republic | Prime minister, formed by the largest party after a proportional election | 5 game seats |
 | Presidential republic | President, first past the post | 5 game seats |
 | Semi-presidential republic | President elected; prime minister appointed | 5 game seats |
-| Constitutional monarchy | Prime minister governs. The monarch office stays vacant; nothing is invented to fill it | 5 game seats |
+| Constitutional monarchy | Prime minister governs. While the monarch office is vacant, any resident of that country may claim it. | 5 game seats |
 | Federal republic | President, plus one national mayor office. Not a mayor for every city | 5 game seats |
 | One-party state | General secretary. A second party cannot be founded | 5 game seats |
 | Authoritarian state | President. Emergency powers can later block new parties | 5 game seats |

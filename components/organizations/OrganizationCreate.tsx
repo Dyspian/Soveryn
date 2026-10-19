@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { ActionFeedback } from "@/components/feedback/ActionFeedback";
 import { organizationsAction } from "@/lib/actions/organizations";
 import type { ActionResult } from "@/lib/actions/account";
 import { ORG_TYPES } from "@/lib/organizations/domain";
@@ -13,8 +14,7 @@ export function OrganizationCreate({ places, invites }: { places: { id: string; 
   }, []);
   return (
     <div className="space-y-4">
-      {state?.ok ? <p className="text-sm text-gold">{state.message}</p> : null}
-      {state && !state.ok ? <p className="text-sm text-danger">{state.error}</p> : null}
+      <ActionFeedback state={state} />
       {invites.map((invite) => (
         <form key={invite.id} action={action} className="panel flex flex-wrap items-center gap-2 text-sm">
           <input type="hidden" name="intent" value="respond-invite" />

@@ -4,11 +4,11 @@ import { PGlite } from "@electric-sql/pglite";
 import { afterAll, describe, expect, it } from "vitest";
 import type { Sql } from "@/lib/db";
 import { RateLimitError } from "@/lib/auth/rate-limit";
-import { limitOrgAction } from "@/lib/organizations/access";
-import { organizationDesk } from "@/lib/organizations/queries";
+import { limitOrgAction, notify } from "@/lib/organizations/access";
+import { loadNoticeFeed, organizationDesk } from "@/lib/organizations/queries";
 import { buyUnderground, createDelivery, departDelivery, listUnderground, openOperation, resolveDelivery, resolveOperation, reviewCase, acceptDelivery, launchOperation } from "@/lib/organizations/play";
 import { acceptAgreement, proposeAgreement } from "@/lib/organizations/relations";
-import { applyToOrganization, createOrganization, dissolveOrganization, inviteMember, removeMember, respondInvitation, setRank, transferLeadership } from "@/lib/organizations/service";
+import { applyToOrganization, createOrganization, dissolveOrganization, inviteMember, markAllNoticesRead, markNoticeRead, removeMember, respondInvitation, setRank, transferLeadership } from "@/lib/organizations/service";
 import { depositTreasury, withdrawTreasury } from "@/lib/organizations/treasury";
 import { provisionNewCharacter } from "@/lib/progression/service";
 
@@ -292,5 +292,18 @@ describe("organizations", () => {
     await tx((sql) => dissolveOrganization(sql, { userId: deputy.userId, organizationId, idempotencyKey: "99999999-9999-4999-8999-999999999992" }));
     const status = await db.query<{ status: string }>("select status from organizations where id = $1", [organizationId]);
     expect(status.rows[0]?.status).toBe("dissolved");
+
+    const before = await loadNoticeFeed(asSql(db), recruit.characterId);
+    await tx((sql) => notify(sql, recruit.characterId, organizationId, "rank", "Your organization rank changed.", "rank:test-owned"));
+    await tx((sql) => notify(sql, recruit.characterId, organizationId, "rank", "duplicate", "rank:test-owned"));
+    const added = await loadNoticeFeed(asSql(db), recruit.characterId);
+    const mine = added.notices.find((notice) => notice.detail === "Your organization rank changed.");
+    expect(added.unread).toBe(before.unread + 1);
+    expect(mine?.organizationId).toBe(organizationId);
+    await tx((sql) => markAllNoticesRead(sql, { userId: outsider.userId }));
+    await tx((sql) => markNoticeRead(sql, { userId: outsider.userId, noticeId: mine?.id ?? "" }));
+    expect((await loadNoticeFeed(asSql(db), recruit.characterId)).unread).toBe(before.unread + 1);
+    await tx((sql) => markNoticeRead(sql, { userId: recruit.userId, noticeId: mine?.id ?? "" }));
+    expect((await loadNoticeFeed(asSql(db), recruit.characterId)).unread).toBe(before.unread);
   });
 });

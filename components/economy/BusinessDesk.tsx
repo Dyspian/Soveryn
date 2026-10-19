@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { EntityMark } from "@/components/game/EntityMark";
 import { businessAction } from "@/lib/actions/economy";
+import { ActionFeedback } from "@/components/feedback/ActionFeedback";
 import type { ActionResult } from "@/lib/actions/account";
+import { formatCount } from "@/lib/game/format";
 import { formatUtc } from "@/lib/world/clock";
 
 const EXTRACTION_CATEGORIES = new Set(["mining", "energy", "agriculture"]);
@@ -35,7 +38,7 @@ type Desk = {
   owner: boolean;
   stock: { productId: string; name: string; quantity: number; unit: string }[];
   jobs: { id: string; name: string; status: string; ready: boolean }[];
-  sites: { id: string; resource: string; remaining: number; status: string; cooling: boolean }[];
+  sites: { id: string; resourceId: string; resource: string; remaining: number; status: string; cooling: boolean }[];
   ledger: { reason: string; amount: number; direction: string; created_at: string }[];
   employees: { id: string; username: string; wage: number }[];
   shipments: { id: string; status: string; product: string; quantity: number; destination: string; ready: boolean }[];
@@ -70,16 +73,22 @@ export function BusinessDesk({ desk }: { desk: Desk }) {
   const [listKey] = useState(() => crypto.randomUUID());
   return (
     <div className="space-y-6">
-      <header>
-        <p className="kicker">{desk.category}</p>
-        <h1 className="page-title">{desk.name}</h1>
-        <p className="mt-2 text-muted">{desk.description || "No description."}</p>
-        <p className="mt-2 text-sm">
-          {desk.city}, {desk.country}
-        </p>
+      <header className="panel flex items-start gap-3">
+        <EntityMark kind="business" id={desk.category} label={desk.category} />
+        <div className="min-w-0">
+          <p className="kicker">{desk.category}</p>
+          <h1 className="page-title">{desk.name}</h1>
+          <p className="mt-2 text-muted">{desk.description || "No description."}</p>
+          <p className="mt-2 flex items-center gap-2 text-sm">
+            <EntityMark kind="country" code={desk.countryIso2} label={desk.country} size="sm" />
+            <span>
+              {desk.city}, {desk.country}
+              {desk.owner ? " · you own this company" : " · you work here"}
+            </span>
+          </p>
+        </div>
       </header>
-      {state?.ok ? <p className="text-sm text-gold">{state.message}</p> : null}
-      {state && !state.ok ? <p className="text-sm text-danger">{state.error}</p> : null}
+      <ActionFeedback state={state} />
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat label="Business balance" value={desk.balance} />
         <Stat label="Recent inflow" value={desk.revenue} />
@@ -124,10 +133,13 @@ export function BusinessDesk({ desk }: { desk: Desk }) {
       <section>
         <h2 className="section-title">Stock in {desk.city}</h2>
         {desk.stock.length === 0 ? <p className="mt-2 text-sm text-muted">No goods are stored in this city.</p> : null}
-        <ul className="mt-2 space-y-1 text-sm">
+        <ul className="mt-2 space-y-2 text-sm">
           {desk.stock.map((item) => (
-            <li key={item.productId}>
-              {item.name} · {item.quantity} {item.unit}
+            <li key={item.productId} className="flex items-center gap-2">
+              <EntityMark kind="resource" id={item.productId} label={item.name} size="sm" />
+              <span>
+                {item.name} · <span className="num">{formatCount(item.quantity)}</span> {item.unit}
+              </span>
             </li>
           ))}
         </ul>
@@ -176,11 +188,14 @@ export function BusinessDesk({ desk }: { desk: Desk }) {
                 {recipe.inputLines.length === 0 ? <p className="mt-1 text-xs text-muted">No inputs.</p> : (
                   <ul className="mt-1 text-xs text-muted">
                     {recipe.inputLines.map((line) => (
-                      <li key={line.productId}>
-                        {line.name} × <span className="num">{line.quantity}</span>
-                        {" · held "}
-                        <span className="num">{line.held}</span>
-                        {line.held < line.quantity ? ` · short by ${line.quantity - line.held}` : ""}
+                      <li key={line.productId} className="flex items-center gap-2">
+                        <EntityMark kind="resource" id={line.productId} label={line.name} size="sm" />
+                        <span>
+                          {line.name} × <span className="num">{line.quantity}</span>
+                          {" · held "}
+                          <span className="num">{line.held}</span>
+                          {line.held < line.quantity ? ` · short by ${line.quantity - line.held}` : " · enough held"}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -244,9 +259,12 @@ export function BusinessDesk({ desk }: { desk: Desk }) {
                 <input type="hidden" name="businessId" value={desk.id} />
                 <input type="hidden" name="siteId" value={site.id} />
                 <input type="hidden" name="intent" value="extract" />
-                <span>
-                  {site.resource} · simulated remaining {site.remaining} · {site.status}
-                  {site.cooling ? " · cooling down" : ""}
+                <span className="inline-flex items-center gap-2">
+                  <EntityMark kind="resource" id={site.resourceId} label={site.resource} size="sm" />
+                  <span>
+                    {site.resource} · simulated remaining {site.remaining} · {site.status}
+                    {site.cooling ? " · cooling down" : ""}
+                  </span>
                 </span>
                 <button disabled={pending || site.cooling || site.status !== "active"} className="btn btn-secondary ml-2">
                   Extract
@@ -392,11 +410,15 @@ export function BusinessDesk({ desk }: { desk: Desk }) {
       <section>
         <h2 className="section-title">Ledger</h2>
         {desk.ledger.length === 0 ? <p className="mt-2 text-sm text-muted">No payments have been recorded.</p> : null}
-        <ul className="mt-2 space-y-1 text-sm">
+        <ul className="mt-2 space-y-2 text-sm">
           {desk.ledger.map((entry, index) => (
-            <li key={`${entry.created_at}-${index}`}>
-              {entry.direction === "in" ? "+" : "−"}
-              {entry.amount.toLocaleString("en-US")} · {LEDGER_LABELS[entry.reason] ?? entry.reason.replaceAll("_", " ")}
+            <li key={`${entry.created_at}-${index}`} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <span>{LEDGER_LABELS[entry.reason] ?? entry.reason.replaceAll("_", " ")}</span>
+              <span className="num">
+                {entry.direction === "in" ? "received +" : "paid −"}
+                {formatCount(entry.amount)}
+              </span>
+              <span className="text-xs text-muted">{formatUtc(entry.created_at)}</span>
             </li>
           ))}
         </ul>

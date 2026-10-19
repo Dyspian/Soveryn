@@ -25,9 +25,14 @@ export default async function MissionsPage() {
           <p className="max-w-2xl text-muted">{sheet.specializationSummary}</p>
           <p className="mt-2 max-w-2xl text-sm text-muted">Rewards are calculated on the server after the objective is validated. A one-time mission pays once. A repeatable contract pays again only after its cooldown, and only for a new completion.</p>
         </div>
-        <Link href="/skills" className="text-sm text-gold">
-          Skills
-        </Link>
+        <p className="flex gap-3 text-sm">
+          <Link href="/skills" className="text-gold">
+            Skills
+          </Link>
+          <Link href="/events" className="text-gold">
+            Events
+          </Link>
+        </p>
       </div>
       <CivicTermPanel term={term} />
       <MissionBoard

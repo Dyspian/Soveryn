@@ -49,6 +49,10 @@ const FIXED: Record<string, { category: string; summary: string }> = {
     category: "Government",
     summary: "A party recorded a game succession. This is not a real monarch.",
   },
+  "succession\nA resident claimed the vacant game monarchy. This is not a real monarch.": {
+    category: "Government",
+    summary: "A resident claimed the vacant game monarchy. This is not a real monarch.",
+  },
 };
 
 export type PublicActivity = {

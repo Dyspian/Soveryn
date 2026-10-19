@@ -17,6 +17,7 @@ import {
   castVote,
   challengeRuler,
   claimRuledOffice,
+  claimMonarchy,
   closeBill,
   closeElection,
   createParty,
@@ -202,6 +203,10 @@ export async function politicsAction(_state: ActionResult | null, formData: Form
         if (!countries[0]) throw new PoliticsError("That country code is not in the game.");
         await signTreaty(sql, { userId: user.id, otherCountryId: countries[0].id, title: String(formData.get("title") ?? "") });
         return "The treaty was signed. It has no military effect.";
+      }
+      if (intent === "claim-monarchy") {
+        await claimMonarchy(sql, { userId: user.id, countryId });
+        return "You claimed the vacant monarchy. It is not a real monarch.";
       }
       if (intent === "succession") {
         const found = await sql.query<{ id: string }>("select id from characters where lower(username) = lower($1)", [String(formData.get("username") ?? "")]);
